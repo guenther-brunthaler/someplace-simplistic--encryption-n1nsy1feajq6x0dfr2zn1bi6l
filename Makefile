@@ -1,6 +1,6 @@
 .POSIX:
 
-TARGETS = mdrc4
+TARGETS = rc4hash
 DOCS = README.html
 
 CFLAGS = -D NDEBUG -O

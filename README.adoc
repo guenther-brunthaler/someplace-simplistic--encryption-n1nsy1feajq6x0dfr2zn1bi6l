@@ -1,8 +1,8 @@
-mdrc4 - abuse ARCFOUR as a hash algorithm
+rc4hash - abuse ARCFOUR as a hash algorithm
 =========================================
 Guenther Brunthaler
 
-mdrc4 is a tool similar to sha256sum but much simpler to 
+rc4hash is a tool similar to sha256sum but much simpler to 
 implement, while still being reasonably fast.
 
 The main reason to use it is that the algorithm is easy to 
@@ -11,7 +11,7 @@ to any written specification.
 
 For instance, one might find oneself in a situation without any 
 external network access and no source code to a hash algorithm or 
-the specification to such. mdrc4 is still simple enough to be 
+the specification to such. rc4hash is still simple enough to be 
 implemented from memory, provided ARCFOUR has also been 
 remembered.
 
@@ -35,8 +35,12 @@ The custom base-32 alphabet uses all ASCII upper-case letters and
 decimal digits, excluding '0' (zero), '1' (one), 'I' like India 
 and 'O' like Oscar.
 
-While I a have no clue whether or not this hash algorithm is 
-cryptographically secure, it certainly is fast as hell.
+While I a have serious doubts whether or not this hash algorithm 
+is cryptographically secure, it certainly is fast as hell.
+
+When unsed inside of an encrypted message, i. e. MtE, then its 
+cryptographic shortcomings should not be too significant. It 
+would probably be a bad choice for EtM, though.
 
 Use it in situations when you want a very fast hash output that 
 is much larger than that of cksum and much faster than md5sum.
@@ -44,3 +48,7 @@ is much larger than that of cksum and much faster than md5sum.
 The code footprint of the implementation is also very small, 
 because ARCFOUR is a much simpler algorithm than any known 
 cryptographic hash algorithm.
+
+One disadvantage of the algorithm is the large startup overhead 
+causing by dropping the initial portion of the output keystream. 
+It is therefore only efficient for larger files.

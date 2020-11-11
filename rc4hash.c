@@ -1,7 +1,7 @@
 /*
- * mdrc4 - abuse ARCFOUR as a simplistic and reasonably fast hash algorithm
+ * rc4hash - abuse ARCFOUR as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.316.6
+ * Version 2020.316.7
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *

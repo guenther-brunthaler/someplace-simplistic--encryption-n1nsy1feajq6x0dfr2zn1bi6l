@@ -1,7 +1,7 @@
 /*
  * mdarc4 - abuse ARC4 as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.316.1
+ * Version 2020.316.2
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -13,8 +13,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define SBOX_SIZE (1 << 8)
-
 #define SCAN_DEFAULT (3 * SBOX_SIZE)
 #define DROP_N (4 * SCAN_DEFAULT)
 
@@ -23,9 +21,8 @@
 
 static char const alphabet[]= {
    /*
-   $ cat << 'EOF' | perl
-   print join(", ", map "'$_'", grep /[^01OI]/, ("A".."Z", "0".."9")), "\n"
-   EOF
+   $ perl -e \
+   'print join(", ", map "'\'\$_\''", grep /[^01OI]/, (A..Z, 0..9)), "\n"'
    */
      'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'
    , 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R'
@@ -35,16 +32,17 @@ static char const alphabet[]= {
 
 #define DIM(array) (sizeof(array) / sizeof *(array))
 #define ASSERT_POWER_OF_2(n) assert(~((n) - 1) % (n) == 0)
-
-#define ARC4_MOD(x) ((x) & SBOX_SIZE - 1)
+#define ALPHABET_MOD(x) ((x) & (1 << ALPHABET_BITS) - 1)
+#define SBOX_SIZE (1 << 8)
+#define SBOX_MOD(x) ((x) & SBOX_SIZE - 1)
 #define ARC4_STEP_1 for (i= SBOX_SIZE; i-- ;) s[i]= (unsigned char)i;
 #define ARC4_STEP_2 i= j= 0
-#define ARC4_STEP_3 i= ARC4_MOD(i + 1)
-#define ARC4_STEP_4_SETUP(keyoctet) j= ARC4_MOD(j + s[i] + keyoctet)
-#define ARC4_STEP_4 j= ARC4_MOD(j + s[i])
+#define ARC4_STEP_3 i= SBOX_MOD(i + 1)
+#define ARC4_STEP_4_SETUP(keyoctet) j= SBOX_MOD(j + s[i] + keyoctet)
+#define ARC4_STEP_4 j= SBOX_MOD(j + s[i])
 #define ARC4_STEP_5_DROP v1= s[i]; s[i]= s[j]; s[j]= v1
 #define ARC4_STEP_5 v1= s[i]; s[i]= v2= s[j]; s[j]= v1
-#define ARC4_STEP_6() s[ARC4_MOD(v1 + v2)]
+#define ARC4_STEP_6() s[SBOX_MOD(v1 + v2)]
 
 int main(void) {
    static unsigned char s[SBOX_SIZE];
@@ -99,10 +97,7 @@ int main(void) {
          }
          assert(bufbits >= ALPHABET_BITS);
          {
-            int c= alphabet[
-                  buf >> bufbits - ALPHABET_BITS
-               &  (1 << ALPHABET_BITS) - 1
-            ];
+            int c= alphabet[ALPHABET_MOD(buf >> bufbits - ALPHABET_BITS)];
             bufbits-= ALPHABET_BITS;
             if (putchar(c) != c) goto wrerr;
          }

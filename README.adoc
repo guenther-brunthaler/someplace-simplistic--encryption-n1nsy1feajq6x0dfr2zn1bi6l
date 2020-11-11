@@ -1,5 +1,5 @@
-mdfast - abuse ARC4 as a fast hash algorithm
-============================================
+mdarc4 - abuse ARC4 as a simplistic and reasonably fast hash algorithm
+======================================================================
 Guenther Brunthaler
 
 The idea is to set the standard input stream to be hashed as the 

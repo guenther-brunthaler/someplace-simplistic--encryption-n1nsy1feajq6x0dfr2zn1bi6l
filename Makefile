@@ -1,6 +1,6 @@
 .POSIX:
 
-TARGETS = mdfast
+TARGETS = mdarc4
 DOCS = README.html
 
 CFLAGS = -D NDEBUG -O

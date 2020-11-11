@@ -1,7 +1,7 @@
 /*
- * mdfast - abuse ARC4 as a fast hash algorithm
+ * mdarc4 - abuse ARC4 as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.316
+ * Version 2020.316.1
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *

@@ -1,0 +1,33 @@
+mdfast - abuse ARC4 as a fast hash algorithm
+============================================
+Guenther Brunthaler
+
+The idea is to set the standard input stream to be hashed as the 
+ARCFOUR-variant key.
+
+Then use the first 256 output bits of the ARCFOUR-variant 
+pseudorandom stream as a message digest and output it encoded as 
+a base-32 string using a custom alphabet.
+
+The ARCFOUR-variant is a minimally modified ARCFOUR-DROP3072 
+algorithm: Its key setup processes all octets of the key exactly 
+once. No key octets are ignored or repeated cyclically.
+
+ARCFOUR-DROP3072 is the original ARCFOUR algorithm modified in 
+order to discard its first 3072 generated pseudorandom output 
+octets. This prevents some known attacks against the unmodified 
+algorithm.
+
+The custom base-32 alphabet uses all ASCII upper-case letters and 
+decimal digits, excluding '0' (zero), '1' (one), 'I' like India 
+and 'O' like Oscar.
+
+While I a have no clue whether or not this hash algorithm is 
+cryptographically secure, it certainly is fast as hell.
+
+Use it in situations when you want a very fast hash output that 
+is much larger than that of cksum and much faster than md5sum.
+
+The code footprint of the implementation is also very small, 
+because ARCFOUR is a much simpler algorithm than any known 
+cryptographic hash algorithm.

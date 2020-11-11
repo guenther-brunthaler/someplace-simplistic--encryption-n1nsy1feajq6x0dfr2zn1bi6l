@@ -1,7 +1,7 @@
 #! /bin/sh
 while read hash string
 do
-	h=`printf '%s' "\$string" | ./mdarc4`
+	h=`printf '%s' "\$string" | ./mdrc4`
 	test "$h" = "$hash" && continue
 	{
 		echo "String >>>$string<<< should result in digest"

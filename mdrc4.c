@@ -1,7 +1,7 @@
 /*
- * mdarc4 - abuse ARC4 as a simplistic and reasonably fast hash algorithm
+ * mdrc4 - abuse ARCFOUR as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.316.5
+ * Version 2020.316.6
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -35,14 +35,14 @@ static char const alphabet[]= {
 #define ALPHABET_MOD(x) ((x) & (1 << ALPHABET_BITS) - 1)
 #define SBOX_SIZE (1 << 8)
 #define SBOX_MOD(x) ((x) & SBOX_SIZE - 1)
-#define ARC4_STEP_1 for (i= SBOX_SIZE; i-- ;) s[i]= (unsigned char)i;
-#define ARC4_STEP_2 i= j= 0
-#define ARC4_STEP_3 i= SBOX_MOD(i + 1)
-#define ARC4_STEP_4_SETUP(keyoctet) j= SBOX_MOD(j + s[i] + keyoctet)
-#define ARC4_STEP_4 j= SBOX_MOD(j + s[i])
-#define ARC4_STEP_5_DROP v1= s[i]; s[i]= s[j]; s[j]= v1
-#define ARC4_STEP_5 v1= s[i]; s[i]= v2= s[j]; s[j]= v1
-#define ARC4_STEP_6() s[SBOX_MOD(v1 + v2)]
+#define ARCFOUR_STEP_1 for (i= SBOX_SIZE; i-- ;) s[i]= (unsigned char)i;
+#define ARCFOUR_STEP_2 i= j= 0
+#define ARCFOUR_STEP_3 i= SBOX_MOD(i + 1)
+#define ARCFOUR_STEP_4_SETUP(keyoctet) j= SBOX_MOD(j + s[i] + keyoctet)
+#define ARCFOUR_STEP_4 j= SBOX_MOD(j + s[i])
+#define ARCFOUR_STEP_5_DROP v1= s[i]; s[i]= s[j]; s[j]= v1
+#define ARCFOUR_STEP_5 v1= s[i]; s[i]= v2= s[j]; s[j]= v1
+#define ARCFOUR_STEP_6() s[SBOX_MOD(v1 + v2)]
 
 int main(int argc, char **argv) {
    static unsigned char s[SBOX_SIZE];
@@ -71,16 +71,16 @@ int main(int argc, char **argv) {
          }
       }
       /* Hash current standard input */
-      ARC4_STEP_1;
-      ARC4_STEP_2;
+      ARCFOUR_STEP_1;
+      ARCFOUR_STEP_2;
       /* Process input as an (overly long) key to set. */
       {
          int c;
          while ((c= getchar()) != EOF) {
-            ARC4_STEP_3;
+            ARCFOUR_STEP_3;
             assert(c >= 0); assert(c < SBOX_SIZE);
-            ARC4_STEP_4_SETUP((unsigned)c);
-            ARC4_STEP_5_DROP;
+            ARCFOUR_STEP_4_SETUP((unsigned)c);
+            ARCFOUR_STEP_5_DROP;
          }
       }
       if (ferror(stdin)) {
@@ -92,14 +92,14 @@ int main(int argc, char **argv) {
       }
       assert(feof(stdin));
       /* Finish key setup. */
-      ARC4_STEP_2;
+      ARCFOUR_STEP_2;
       /* Drop the initial pseudorandom output. */
       {
          unsigned k;
          for (k= DROP_N; k--; ) {
-            ARC4_STEP_3;
-            ARC4_STEP_4;
-            ARC4_STEP_5_DROP;
+            ARCFOUR_STEP_3;
+            ARCFOUR_STEP_4;
+            ARCFOUR_STEP_5_DROP;
          }
       }
       /* Produce the message digest. */
@@ -113,10 +113,10 @@ int main(int argc, char **argv) {
          for (k= DIGEST_BITS; k > 0; k-= ALPHABET_BITS) {
             if (bufbits < ALPHABET_BITS) {
                /* Append the bits of another ARCFOUR output octet to <buf>. */
-               ARC4_STEP_3;
-               ARC4_STEP_4;
-               ARC4_STEP_5;
-               buf= buf << 8 | ARC4_STEP_6();
+               ARCFOUR_STEP_3;
+               ARCFOUR_STEP_4;
+               ARCFOUR_STEP_5;
+               buf= buf << 8 | ARCFOUR_STEP_6();
                bufbits+= 8;
             }
             assert(bufbits >= ALPHABET_BITS);

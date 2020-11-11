@@ -1,7 +1,7 @@
 /*
  * mdarc4 - abuse ARC4 as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.316.3
+ * Version 2020.316.4
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -63,7 +63,9 @@ int main(int argc, char **argv) {
    for (;;) {
       if (a < argc) {
          if (!freopen(argv[a], "rb", stdin)) {
-            (void)fputs("Could not open \"", stderr);
+            (void)fputs("Could not open", stderr);
+            add_arg:
+            (void)fputs(" \"", stderr);
             (void)fputs(argv[a], stderr);
             error= "\"!"; goto fail;
          }
@@ -81,7 +83,13 @@ int main(int argc, char **argv) {
             ARC4_STEP_5_DROP;
          }
       }
-      if (ferror(stdin)) { error= "Read error!"; goto fail; }
+      if (ferror(stdin)) {
+         if (a < argc) {
+            (void)fputs("Error reading", stderr);
+            goto add_arg;
+         }
+         error= "Read error!"; goto fail;
+      }
       assert(feof(stdin));
       /* Finish key setup. */
       ARC4_STEP_2;

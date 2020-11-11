@@ -1,7 +1,7 @@
 /*
  * mdarc4 - abuse ARC4 as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.316.4
+ * Version 2020.316.5
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
       assert(feof(stdin));
       /* Finish key setup. */
       ARC4_STEP_2;
-      /* Drop the initial keystream. */
+      /* Drop the initial pseudorandom output. */
       {
          unsigned k;
          for (k= DROP_N; k--; ) {

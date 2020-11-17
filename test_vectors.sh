@@ -1,18 +1,66 @@
 #! /bin/sh
-while read hash string
-do
-	h=`printf '%s' "\$string" | ./rc4hash`
-	test "$h" = "$hash" && continue
-	{
-		echo "String >>>$string<<< should result in digest"
-		echo "$hash but instead the following digest was generated:"
-		echo "$h"
-	} >& 2
+
+set -e
+cleanup() {
+	rc=$?
+	test "$tf" && rm -- "$tf"
+	test $rc = 0 || echo "\"$0\": $error" >& 2
+}
+error="Failed!"
+tf=
+trap cleanup 0
+trap 'exit $?' INT HUP QUIT TERM
+
+die() {
+	case $# in
+		0) ;;
+		*) error="$*"
+	esac
 	false || exit
+}
+
+write() {
+	printf %s "$*"
+}
+
+tf=`mktemp -- "${TMPDIR:-/tmp}/${0##*/}.XXXXXXXXXX"`
+while read hash encr string
+do
+	write "$string" | ./rc4hash | cut -c 21-30 > "$tf"
+	read h < "$tf"
+	case $h in
+		"$hash") ;;
+		*)
+			die \
+				"String >>>$string<<< should result in" \
+				"digest $hash but instead the following" \
+				"digest was generated: $h"
+	esac
+	e=`write "$string" | ./rc4sxs-crypt -e -- "$tf" | openssl base64`
+	case $e in
+		"$encr") ;;
+		*)
+			die \
+				"The base-64 encoded encryption of" \
+				">>>$string<<< should should be" \
+				">>>$encr<<< but instead the following" \
+				"digest was the result: >>>$e<<<"
+	esac
+	continue
+	d= `write "$e" | openssl base64 -d | ./rc4sxs-crypt -d -- "$tf"`
+	case $d in
+		"$string") ;;
+		*)
+			die \
+				"The decryption of base-64 encoded" \
+				">>>$e<<< should should be" \
+				">>>$string<<< but instead the following" \
+				"was the result: >>>$d<<<!"
+	esac
 done << 'EOF'
-L7APSJFWRQE57TUHH7YUX5XYQLVPJNKNHQD6FACZKFMBV8JNAQ2Z
-45JAG6GDGPENNJCD276ZFY7RDRYASQTJDDW998C59AUEDVCKGE2E test
-BKYQ53HW53DP323KCUA49STLCUF3BSZ8HE9BJYXKXCF96CWX5AF5 hello, world
-D7UESP8ER2S8XZZK4ACL5JKGCYYFHR5C6BBRXL92QD3HKBK9U8G7 ARCFOUR-based hash
+X5XYQLVPJN
+FY7RDRYASQ 4vcsFA== test
+9STLCUF3BS CTAuB7jml5OMeCAW hello, world
+5JKGCYYFHR c1dCuMhz3voXijD3Y2zw+4Cp ARCFOUR-based hash
 EOF
 echo "Successful!"

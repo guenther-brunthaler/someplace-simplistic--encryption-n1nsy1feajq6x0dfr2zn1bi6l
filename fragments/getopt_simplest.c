@@ -7,6 +7,7 @@ int getopt_simplest(int *optind_ref, int *optpos_ref, int argc, char **argv) {
    if (argc <= 1) {
       assert(optind == 0);
       assert(i == 0);
+      optind= argc;
       end_of_options:
       c= 0;
       goto done;

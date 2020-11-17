@@ -1,7 +1,7 @@
 /*
  * rc4hash - abuse ARCFOUR as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.322.1
+ * Version 2020.322.2
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -19,32 +19,47 @@
 #define ALPHABET_BITS 5
 #define DIGEST_BITS 256
 
-static char const alphabet[]= {
+static char const b32custom_alphabet[]= {
    /*
    $ perl -e \
    'print join(", ", map "'\'\$_\''", grep /[^01OI]/, (A..Z, 0..9)), "\n"'
    */
-     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'
-   , 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R'
-   , 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
-   , '2', '3', '4', '5', '6', '7', '8', '9'
+      'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'
+   ,  'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R'
+   ,  'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
+   ,  '2', '3', '4', '5', '6', '7', '8', '9'
 };
 
-#define ASSERT_POWER_OF_2(n) assert(~((n) - 1) % (n) == 0)
-#define ALPHABET_MOD(x) ((x) & (1 << ALPHABET_BITS) - 1)
+static char const hex_alphabet[]= {
+   /* $ perl -e 'print join(", ", map "'\'\$_\''", 0..9, A..F), "\n"' */
+      '0', '1', '2', '3', '4', '5', '6', '7'
+   ,  '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+};
 
 int main(int argc, char **argv) {
    char const *error= 0;
    int a= 0;
+   char const *alphabet= b32custom_alphabet;
+   unsigned alphabet_bitmask= DIM(b32custom_alphabet) - 1, alphabet_bits;
    ARCFOUR_VARDEFS(static);
-   /* Ensure SBOX_SIZE is an integral power of 2. */
-   ASSERT_POWER_OF_2(SBOX_SIZE);
-   /* Ensure correct alphabet size. */
-   assert(DIM(alphabet) == 1 << ALPHABET_BITS);
    {
       int optpos= 0;
-      if (getopt_simplest(&a, &optpos, argc, argv)) {
-         error= "Unsupported option!"; goto fail;
+      for (;;) {
+         switch (getopt_simplest(&a, &optpos, argc, argv)) {
+            case 0: goto no_more_options;
+            case 'x':
+               alphabet= hex_alphabet; alphabet_bitmask= DIM(hex_alphabet) - 1;
+               break;
+            case 'r': alphabet= 0; alphabet_bitmask= (1 << 8) - 1; break;
+            default: error= "Unsupported option!"; goto fail;
+         }
+      }
+   }
+   no_more_options:
+   {
+      unsigned bm;
+      for (alphabet_bits= bm= 0; bm != alphabet_bitmask; ++alphabet_bits) {
+         bm+= bm + 1;
       }
    }
    for (;;) {
@@ -97,8 +112,8 @@ int main(int argc, char **argv) {
             buf= 0;
          #endif
          assert(DIGEST_BITS % 8 == 0);
-         for (k= DIGEST_BITS; k > 0; k-= ALPHABET_BITS) {
-            if (bufbits < ALPHABET_BITS) {
+         for (k= DIGEST_BITS; k > 0; k-= (int)alphabet_bits) {
+            if (bufbits < alphabet_bits) {
                /* Append the bits of another ARCFOUR output octet to <buf>. */
                ARCFOUR_STEP_3;
                ARCFOUR_STEP_4;
@@ -106,18 +121,20 @@ int main(int argc, char **argv) {
                buf= buf << 8 | ARCFOUR_STEP_6();
                bufbits+= 8;
             }
-            assert(bufbits >= ALPHABET_BITS);
+            assert(bufbits >= alphabet_bits);
             {
-               int c= alphabet[ALPHABET_MOD(buf >> bufbits - ALPHABET_BITS)];
-               bufbits-= ALPHABET_BITS;
+               int c= (int)(buf >> bufbits - alphabet_bits & alphabet_bitmask);
+               if (alphabet) c= alphabet[c];
+               bufbits-= alphabet_bits;
                if (putchar(c) != c) goto wrerr;
             }
          }
          if (a < argc) {
-            if (putchar(' ') == EOF) goto wrerr;
+            if (alphabet) if (putchar(' ') == EOF) goto wrerr;
             if (fputs(argv[a], stdout) < 0) goto wrerr;
+            if (!alphabet) if (putchar('\0') == EOF) goto wrerr;
          }
-         if (putchar('\n') == EOF) goto wrerr;
+         if (alphabet) if (putchar('\n') == EOF) goto wrerr;
       }
       if (!(++a < argc)) break;
    }

@@ -1,3 +1,5 @@
+/* v2020.322 */
+
 #include <getopt_nh7lll77vb62ycgwzwf30zlln.h>
 #include <string.h>
 #include <assert.h>
@@ -8,6 +10,9 @@ int getopt_simplest(int *optind_ref, int *optpos_ref, int argc, char **argv) {
       assert(optind == 0);
       assert(i == 0);
       optind= argc;
+      goto end_of_options;
+   }
+   if (optind == argc) {
       end_of_options:
       c= 0;
       goto done;

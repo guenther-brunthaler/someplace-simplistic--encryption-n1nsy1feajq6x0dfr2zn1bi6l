@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
          r1= ARCFOUR_STEP_6();
          ARCFOUR_STEP_3; ARCFOUR_STEP_4; ARCFOUR_STEP_5;
          assert(c >= 0); assert(c < SBOX_SIZE);
-         c= SBOX_MOD(c ^ ARCFOUR_STEP_6() - r1) ^ r0;
+         c= SBOX_MOD((c ^ ARCFOUR_STEP_6()) - r1) ^ r0;
          if (putchar(c) != c) goto wrerr;
       }
    } else {

@@ -10,6 +10,8 @@
  */
 
 #include "arc4_common.h"
+#include "dim_sdbrke8ae851uitgzm4nv3ea2.h"
+#include "getopt_nh7lll77vb62ycgwzwf30zlln.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -28,23 +30,22 @@ static char const alphabet[]= {
    , '2', '3', '4', '5', '6', '7', '8', '9'
 };
 
-#define DIM(array) (sizeof(array) / sizeof *(array))
 #define ASSERT_POWER_OF_2(n) assert(~((n) - 1) % (n) == 0)
 #define ALPHABET_MOD(x) ((x) & (1 << ALPHABET_BITS) - 1)
 
 int main(int argc, char **argv) {
    char const *error= 0;
-   int a;
+   int a= 0;
    ARCFOUR_VARDEFS(static);
    /* Ensure SBOX_SIZE is an integral power of 2. */
    ASSERT_POWER_OF_2(SBOX_SIZE);
    /* Ensure correct alphabet size. */
    assert(DIM(alphabet) == 1 << ALPHABET_BITS);
-   if ((a= 1) < argc && argv[a][0] == '-') {
-      if (argv[a][1] != '-' || argv[a][2] != '\0') {
+   {
+      int optpos= 0;
+      if (getopt_simplest(&a, &optpos, argc, argv)) {
          error= "Unsupported option!"; goto fail;
       }
-      ++a;
    }
    for (;;) {
       if (a < argc) {

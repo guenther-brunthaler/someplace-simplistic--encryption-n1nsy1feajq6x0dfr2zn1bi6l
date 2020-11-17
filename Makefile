@@ -1,27 +1,42 @@
 .POSIX:
-# v2020.322
 
-TARGETS = rc4hash
-DOCS = README.html
-
-CFLAGS = -D NDEBUG -O
+# Preset portable default build options. Override by either assigning some of
+# those directly as part of the "make" command-line arguments. Or export
+# environment variables of the same names, plus "export MAKEFLAGS=e" also.
+CPPFLAGS = -D NDEBUG
+CFLAGS = -O
 LDFLAGS = -s
 
-PROJECT_CPPFLAGS = -I .
-AUGMENTED_CPPFLAGS = $(CPPFLAGS) $(PROJECT_CPPFLAGS)
-AUGMENTED_CFLAGS= $(AUGMENTED_CPPFLAGS) $(CFLAGS)
+OBJECTS = $(SOURCES:.c=.o)
+TARGETS = $(OBJECTS:.o=)
+LIBS = $(LIB_1_SUBDIR)/lib$(LIB_1_SUBDIR).a
 
-.PHONY: all clean doc
+LIB_1_SUBDIR =  fragments
+LIB_1_INC_SUBDIR = include
+
+.PHONY: all clean
+
+include sources.mk
 
 all: $(TARGETS)
 
-doc: $(DOCS)
-
-$(DOCS): $(DOCS:.html=.adoc)
-	asciidoc $?
-
 clean:
-	-rm $(TARGETS) $(DOCS)
+	-cd $(LIB_1_SUBDIR) && $(MAKE) clean
+	-rm $(TARGETS) $(OBJECTS)
 
-.c:
-	$(CC) $(AUGMENTED_CFLAGS) $(LDFLAGS) -o $@ $<
+COMBINED_CFLAGS= $(CPPFLAGS) $(CFLAGS)
+AUG_CFLAGS = \
+	$(COMBINED_CFLAGS) \
+	-I . \
+	-I $(LIB_1_SUBDIR)/$(LIB_1_INC_SUBDIR)
+
+.c.o:
+	$(CC) $(AUG_CFLAGS) -c $<
+
+include dependencies.mk
+include targets.mk
+
+$(LIBS):
+	for lib in $@; do (cd "`dirname "$$lib"`" && $(MAKE)); done
+
+include maintainer.mk # Rules not required for just building the application.

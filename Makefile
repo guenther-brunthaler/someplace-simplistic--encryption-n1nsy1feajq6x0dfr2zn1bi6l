@@ -9,6 +9,7 @@ LDFLAGS = -s
 
 OBJECTS = $(SOURCES:.c=.o)
 TARGETS = $(OBJECTS:.o=)
+DOCS = README.html
 LIBS = $(LIB_1_SUBDIR)/lib$(LIB_1_SUBDIR).a
 
 LIB_1_SUBDIR =  fragments
@@ -22,7 +23,12 @@ all: $(TARGETS)
 
 clean:
 	-cd $(LIB_1_SUBDIR) && $(MAKE) clean
-	-rm $(TARGETS) $(OBJECTS)
+	-rm $(TARGETS) $(OBJECTS) $(DOCS)
+
+doc: $(DOCS)
+
+$(DOCS): $(DOCS:.html=.adoc)
+	asciidoc $?
 
 COMBINED_CFLAGS= $(CPPFLAGS) $(CFLAGS)
 AUG_CFLAGS = \

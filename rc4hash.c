@@ -1,7 +1,7 @@
 /*
  * rc4hash - abuse ARCFOUR as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.322
+ * Version 2020.322.1
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -10,8 +10,8 @@
  */
 
 #include "arc4_common.h"
-#include "dim_sdbrke8ae851uitgzm4nv3ea2.h"
-#include "getopt_nh7lll77vb62ycgwzwf30zlln.h"
+#include <dim_sdbrke8ae851uitgzm4nv3ea2.h>
+#include <getopt_nh7lll77vb62ycgwzwf30zlln.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>

@@ -1,7 +1,7 @@
 /*
  * rc4hash - abuse ARCFOUR as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.322.2
+ * Version 2020.322.3
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -15,9 +15,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-
-#define ALPHABET_BITS 5
-#define DIGEST_BITS 256
 
 static char const b32custom_alphabet[]= {
    /*
@@ -39,19 +36,36 @@ static char const hex_alphabet[]= {
 int main(int argc, char **argv) {
    char const *error= 0;
    int a= 0;
+   long digest_bits= 256;
    char const *alphabet= b32custom_alphabet;
    unsigned alphabet_bitmask= DIM(b32custom_alphabet) - 1, alphabet_bits;
    ARCFOUR_VARDEFS(static);
    {
       int optpos= 0;
       for (;;) {
-         switch (getopt_simplest(&a, &optpos, argc, argv)) {
+         int opt;
+         switch (opt= getopt_simplest(&a, &optpos, argc, argv)) {
             case 0: goto no_more_options;
             case 'x':
                alphabet= hex_alphabet; alphabet_bitmask= DIM(hex_alphabet) - 1;
                break;
             case 'r': alphabet= 0; alphabet_bitmask= (1 << 8) - 1; break;
-            default: error= "Unsupported option!"; goto fail;
+            case 'B': case 'b':
+               {
+                  char const *optarg;
+                  if (!(optarg= getopt_simplest_mand_arg(
+                     &a, &optpos, argc, argv
+                  ))) {
+                     getopt_simplest_perror_missing_arg(opt); goto leave;
+                  }
+                  if ((digest_bits= atol(optarg)) < 1) goto bad_digest_size;
+                  if (opt == 'B') {
+                     long old= digest_bits;
+                     if ((digest_bits<<= 3) <= old) goto bad_digest_size;
+                  }
+               }
+               break;
+            default: getopt_simplest_perror_opt(opt); goto leave;
          }
       }
    }
@@ -61,6 +75,10 @@ int main(int argc, char **argv) {
       for (alphabet_bits= bm= 0; bm != alphabet_bitmask; ++alphabet_bits) {
          bm+= bm + 1;
       }
+   }
+   if (digest_bits & (long)(alphabet_bits - 1)) {
+      bad_digest_size:
+      error= "Invalid digest size requested!"; goto fail;
    }
    for (;;) {
       if (a < argc) {
@@ -106,13 +124,12 @@ int main(int argc, char **argv) {
       }
       /* Produce the message digest. */
       {
-         int k;
+         long k;
          unsigned buf, bufbits= 0;
          #ifndef NDEBUG
             buf= 0;
          #endif
-         assert(DIGEST_BITS % 8 == 0);
-         for (k= DIGEST_BITS; k > 0; k-= (int)alphabet_bits) {
+         for (k= digest_bits; k > 0; k-= (long)alphabet_bits) {
             if (bufbits < alphabet_bits) {
                /* Append the bits of another ARCFOUR output octet to <buf>. */
                ARCFOUR_STEP_3;
@@ -144,5 +161,5 @@ int main(int argc, char **argv) {
       (void)fputs(error, stderr);
       (void)fputc('\n', stderr);
    }
-   return error ? EXIT_FAILURE : EXIT_SUCCESS;
+   leave: return error ? EXIT_FAILURE : EXIT_SUCCESS;
 }

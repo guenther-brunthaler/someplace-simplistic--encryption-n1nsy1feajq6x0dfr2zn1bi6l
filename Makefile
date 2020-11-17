@@ -1,10 +1,15 @@
 .POSIX:
+# v2020.322
 
 TARGETS = rc4hash
 DOCS = README.html
 
 CFLAGS = -D NDEBUG -O
 LDFLAGS = -s
+
+PROJECT_CPPFLAGS = -I .
+AUGMENTED_CPPFLAGS = $(CPPFLAGS) $(PROJECT_CPPFLAGS)
+AUGMENTED_CFLAGS= $(AUGMENTED_CPPFLAGS) $(CFLAGS)
 
 .PHONY: all clean doc
 
@@ -17,3 +22,6 @@ $(DOCS): $(DOCS:.html=.adoc)
 
 clean:
 	-rm $(TARGETS) $(DOCS)
+
+.c:
+	$(CC) $(AUGMENTED_CFLAGS) $(LDFLAGS) -o $@ $<

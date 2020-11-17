@@ -1,7 +1,7 @@
 /*
  * rc4hash - abuse ARCFOUR as a simplistic and reasonably fast hash algorithm
  *
- * Version 2020.316.7
+ * Version 2020.322
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -9,12 +9,10 @@
  * Distribution is permitted under the terms of the GPLv3.
  */
 
+#include "arc4_common.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-
-#define SCAN_DEFAULT (3 * SBOX_SIZE)
-#define DROP_N (4 * SCAN_DEFAULT)
 
 #define ALPHABET_BITS 5
 #define DIGEST_BITS 256
@@ -33,23 +31,11 @@ static char const alphabet[]= {
 #define DIM(array) (sizeof(array) / sizeof *(array))
 #define ASSERT_POWER_OF_2(n) assert(~((n) - 1) % (n) == 0)
 #define ALPHABET_MOD(x) ((x) & (1 << ALPHABET_BITS) - 1)
-#define SBOX_SIZE (1 << 8)
-#define SBOX_MOD(x) ((x) & SBOX_SIZE - 1)
-#define ARCFOUR_STEP_1 for (i= SBOX_SIZE; i-- ;) s[i]= (unsigned char)i;
-#define ARCFOUR_STEP_2 i= j= 0
-#define ARCFOUR_STEP_3 i= SBOX_MOD(i + 1)
-#define ARCFOUR_STEP_4_SETUP(keyoctet) j= SBOX_MOD(j + s[i] + keyoctet)
-#define ARCFOUR_STEP_4 j= SBOX_MOD(j + s[i])
-#define ARCFOUR_STEP_5_DROP v1= s[i]; s[i]= s[j]; s[j]= v1
-#define ARCFOUR_STEP_5 v1= s[i]; s[i]= v2= s[j]; s[j]= v1
-#define ARCFOUR_STEP_6() s[SBOX_MOD(v1 + v2)]
 
 int main(int argc, char **argv) {
-   static unsigned char s[SBOX_SIZE];
    char const *error= 0;
    int a;
-   unsigned i, j;
-   unsigned char v1, v2;
+   ARCFOUR_VARDEFS(static);
    /* Ensure SBOX_SIZE is an integral power of 2. */
    ASSERT_POWER_OF_2(SBOX_SIZE);
    /* Ensure correct alphabet size. */

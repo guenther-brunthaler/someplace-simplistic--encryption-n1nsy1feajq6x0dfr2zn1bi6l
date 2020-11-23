@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.328.1"
+#define VERSTR_1 "Version 2020.328.2"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -28,12 +28,12 @@ static char help[]= { /* Formatted as 66 output columns. */
    "to strengthen some other cipher against known attacks.\n"
    "\n"
    "The short key size of 64 bit makes treyfer-ofb an insecure\n"
-   "algorithm when used on its own. It is rather slow. There is also\n"
-   "a known attack against this cipher which can crack it using 2^32\n"
-   "known plaintexts with an effort of 2^44. The only real advantage\n"
-   "of this cipher is its simplicity, making it very hard to imagine\n"
-   "how someone might have mangaged to plant an algorithmic backdoor\n"
-   "into its design.\n"
+   "algorithm when used on its own. It is rather slow (about eight\n"
+   "times slower than ARCFOUR). There is also a known attack against\n"
+   "this cipher which can crack it using 2^32 known plaintexts with\n"
+   "an effort of 2^44. The only real advantage of this cipher is its\n"
+   "simplicity, making it very hard to imagine how someone might have\n"
+   "mangaged to plant an algorithmic backdoor into its design.\n"
    "\n"
    "treyfer-ofb can be particularly useful for strengthening\n"
    "ARCFOUR-drop3072 against known attacks.\n"
@@ -92,12 +92,6 @@ static char help[]= { /* Formatted as 66 output columns. */
 #include <assert.h>
 
 #define IS_POWER_OF_2(n) (~((n) - 1) % (n) == 0)
-#define MOD_POWEROF2(index, powerof2) ( \
-      (assert((index) < UCHAR_MAX + 1 << 1), 0) \
-   +  (assert((powerof2) <= UCHAR_MAX + 1), 0) \
-   +  ((unsigned char)(index) & (unsigned char)(powerof2) - 1) \
-)
-#define MOD_ARRAY_SIZE(index, array) MOD_POWEROF2(index, DIM(array))
 
 int main(int argc, char **argv) {
    char const *error= 0;
@@ -105,9 +99,6 @@ int main(int argc, char **argv) {
       #include "treyfer_sbox.h"
    };
    unsigned char key[8], block[8];
-   assert(IS_POWER_OF_2(DIM(key)));
-   assert(IS_POWER_OF_2(DIM(block)));
-   assert(IS_POWER_OF_2(CHAR_BIT));
    if (argc > 1) { usage: error= help; goto fail; }
    (void)argv;
    if (getchar() != 'K') goto usage;
@@ -137,26 +128,29 @@ int main(int argc, char **argv) {
    {
       int c;
       unsigned o= 0;
+      assert(IS_POWER_OF_2(DIM(key)));
+      assert(IS_POWER_OF_2(DIM(block)));
+      assert(IS_POWER_OF_2(CHAR_BIT));
       while ((c= getchar()) != EOF) {
+         #define MOD(x, m) ((unsigned char)(x) & (unsigned char)((m) - 1))
+         #define MOD_A(x, array) MOD(x, DIM(array))
          if (o == 0) {
             #define NUMROUNDS 32
             unsigned i;
             unsigned char t= block[0];
             for (i= 0; i < CHAR_BIT * NUMROUNDS; ++i) {
-               t= MOD_ARRAY_SIZE(t + key[MOD_ARRAY_SIZE(i, key)], sbox);
-               t= MOD_POWEROF2( \
-                  sbox[t] + block[MOD_ARRAY_SIZE(i + 1, block)], CHAR_BIT \
-               );
-               /* ROT-L 1 bit. */
-               block[MOD_ARRAY_SIZE(i + 1, block)]=
-                  t= MOD_POWEROF2(t << 1, CHAR_BIT) | t >> CHAR_BIT - 1
-               ;
+               t+= key[MOD_A(i, key)];
+               t= MOD_A(sbox[t] + block[MOD_A(i + 1, block)], sbox);
+               /* ROT-L by 1 bit. */
+               block[MOD_A(i + 1, block)]= t= t << 1 | t >> CHAR_BIT - 1;
             }
          }
          assert(c >= 0); assert(c <= UCHAR_MAX);
          c^= block[o];
-         o= MOD_ARRAY_SIZE(o + 1, block);
+         o= MOD_A(o + 1, block);
          if (putchar(c) != c) goto wrerr;
+         #undef MOD_A
+         #undef MOD
       }
    }
    if (ferror(stdin)) { error= "Read error!"; goto fail; }

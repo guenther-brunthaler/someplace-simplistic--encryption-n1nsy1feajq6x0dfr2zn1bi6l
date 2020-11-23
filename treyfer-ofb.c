@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.328"
+#define VERSTR_1 "Version 2020.328.1"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -12,7 +12,7 @@ static char help[]= { /* Formatted as 66 output columns. */
    "depends on the input what actually happens.\n"
    "\n"
    "This program has no command line arguments. It reads everything\n"
-   "required from it standard input in the following format:\n"
+   "required from its standard input in the following format:\n"
    "\n"
    "K<key8>I<iv8>T<data>\n"
    "\n"
@@ -93,7 +93,9 @@ static char help[]= { /* Formatted as 66 output columns. */
 
 #define IS_POWER_OF_2(n) (~((n) - 1) % (n) == 0)
 #define MOD_POWEROF2(index, powerof2) ( \
-   (unsigned char)(index) & (unsigned char)(powerof2) - 1 \
+      (assert((index) < UCHAR_MAX + 1 << 1), 0) \
+   +  (assert((powerof2) <= UCHAR_MAX + 1), 0) \
+   +  ((unsigned char)(index) & (unsigned char)(powerof2) - 1) \
 )
 #define MOD_ARRAY_SIZE(index, array) MOD_POWEROF2(index, DIM(array))
 

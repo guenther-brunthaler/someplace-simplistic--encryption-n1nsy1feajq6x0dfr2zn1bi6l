@@ -1,4 +1,7 @@
 SOURCES = \
+	rc4drop3072.c \
 	rc4hash.c \
-	rc4sxs-crypt.c \
+	sboxfmt.c \
+	tf.c \
+	treyfer-ofb.c \
 

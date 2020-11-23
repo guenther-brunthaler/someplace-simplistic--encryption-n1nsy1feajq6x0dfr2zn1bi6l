@@ -28,6 +28,7 @@ while read hash encr string
 do
 	write "$string" | ./rc4hash | cut -c 21-30 > "$tf"
 	read h < "$tf"
+	write "$h" | tr -d '\n' | ./rc4hash -rB 211 > "$tf"
 	case $h in
 		"$hash") ;;
 		*)
@@ -36,7 +37,10 @@ do
 				"digest $hash but instead the following" \
 				"digest was generated: $h"
 	esac
-	e=`write "$string" | ./rc4sxs-crypt -e -- "$tf" | openssl base64`
+	e=`
+		write K; cat < "$tf"; write E; write "$string" \
+			| ./rc4sxs-crypt | openssl base64
+	`
 	case $e in
 		"$encr") ;;
 		*)
@@ -47,7 +51,12 @@ do
 				"digest was the result: >>>$e<<<"
 	esac
 	continue
-	d= `write "$e" | openssl base64 -d | ./rc4sxs-crypt -d -- "$tf"`
+	d= `
+		write "$e" | openssl base64 -d \
+		| {
+			write K; cat < "$tf"; write D; cat; \
+		} | ./rc4sxs-crypt
+	`
 	case $d in
 		"$string") ;;
 		*)

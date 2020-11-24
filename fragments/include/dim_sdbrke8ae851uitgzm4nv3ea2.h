@@ -5,7 +5,9 @@
  *
  * Utilities related to the size of an array. *//*
  *
- * (c) 2010-2017 by Guenther Brunthaler.
+ * v2020.329
+ *
+ * (c) 2010-2020 by Guenther Brunthaler.
  * This source file is free software.
  * Distribution is permitted under the terms of the LGPLv3.
  */

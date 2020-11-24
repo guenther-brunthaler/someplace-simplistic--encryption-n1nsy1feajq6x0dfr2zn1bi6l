@@ -1,7 +1,10 @@
-rc4drop3072.o: rc4drop3072.c arc4_common.h \
- fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h
-rc4hash.o: rc4hash.c arc4_common.h \
- fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h \
- fragments/include/getopt_nh7lll77vb62ycgwzwf30zlln.h
-treyfer-ofb.o: treyfer-ofb.c arc4_common.h \
- fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h treyfer_sbox.h
+rc4drop3072.o: arc4_common.h
+rc4drop3072.o: fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h
+rc4drop3072.o: rc4drop3072.c
+rc4hash.o: arc4_common.h
+rc4hash.o: fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h
+rc4hash.o: fragments/include/getopt_nh7lll77vb62ycgwzwf30zlln.h
+rc4hash.o: rc4hash.c
+treyfer-ofb.o: arc4_common.h
+treyfer-ofb.o: fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h
+treyfer-ofb.o: treyfer-ofb.c

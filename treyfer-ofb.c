@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.328.2"
+#define VERSTR_1 "Version 2020.329"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -14,11 +14,12 @@ static char help[]= { /* Formatted as 66 output columns. */
    "This program has no command line arguments. It reads everything\n"
    "required from its standard input in the following format:\n"
    "\n"
-   "K<key8>I<iv8>T<data>\n"
+   "K<key8>S<sbc256>I<iv8>T<data>\n"
    "\n"
    "where\n"
    "\n"
    "<key8>: 8 octets (binary 8-bit data bytes) encryption key\n"
+   "<sbc256>: 256 octets S-box configuration data\n"
    "<iv8>: 8 octets initialization vector (IV)\n"
    "<data>: arbitrary number of plaintext or ciphertext octets\n"
    "\n"
@@ -65,16 +66,24 @@ static char help[]= { /* Formatted as 66 output columns. */
    "encrypted file, allowing the salt to be retrieved from there for\n"
    "decryption.\n"
    "\n"
-   "All ciphers of the treyfer family require an unspecified s-box\n"
+   "All ciphers of the treyfer family require an unspecified S-box\n"
    "that is used to personalize its algorithm.\n"
    "\n"
-   "This implementation uses the rc4hash utility for hashing the\n"
-   "ASCII string 'treyfer-ofb sbox' into 256 output octets in order\n"
-   "to create a fixed s-box. It starts with an\n"
-   "identity-transformation (i. e. no-op) s-box and then reads the\n"
-   "256 octets provided by rc4hash, which are interpreted as s-box\n"
-   "indices for which to swap elements with the one at the current\n"
-   "(ascending) loop index.\n"
+   "The <sbc256> array parameter contains instructions how to set up\n"
+   "that S-box as follows:\n"
+   "\n"
+   "* First, the S-box is initialized with an identity-transformation\n"
+   "(i. e. substitutions using it would be no-ops).\n"
+   "\n"
+   "* Then a loop counter runs from 0 through 255, indexing every\n"
+   "element of the S-box as well as of the <sbc256> array.\n"
+   "\n"
+   "* Within each loop iteration, the S-box elements indexed by the\n"
+   "counter and the one indexed by the <sbc256> array element (which\n"
+   "is indexed itself by the same counter) are exchanged.\n"
+   "\n"
+   "* After the loop finishes, the S-box has been constructed and\n"
+   "will then be used.\n"
    "\n"
    VERSTR_1 "\n"
    "\n"
@@ -95,9 +104,7 @@ static char help[]= { /* Formatted as 66 output columns. */
 
 int main(int argc, char **argv) {
    char const *error= 0;
-   static unsigned char const sbox[1 << CHAR_BIT]= {
-      #include "treyfer_sbox.h"
-   };
+   static unsigned char sbox[1 << CHAR_BIT];
    unsigned char key[8], block[8];
    if (argc > 1) { usage: error= help; goto fail; }
    (void)argv;
@@ -110,6 +117,25 @@ int main(int argc, char **argv) {
          if ((c= getchar()) == EOF) goto usage;
          assert(c >= 0); assert(c <= UCHAR_MAX);
          key[n]= (unsigned char)c;
+      }
+   }
+   if (getchar() != 'S') goto usage;
+   /* Read S-box configuration data and construct S-box from it. */
+   {
+      unsigned n;
+      /* Preset identity substitution. */
+      for (n= (unsigned)DIM(sbox); n--; ) sbox[n]= (unsigned char)n;
+      for (n= 0; n < (unsigned)DIM(sbox); ++n) {
+         int c;
+         if ((c= getchar()) == EOF) goto usage;
+         assert(c >= 0); assert(c <= (int)DIM(sbox));
+         {
+            unsigned char t;
+            t= sbox[c]; sbox[c]= sbox[n]; sbox[n]= t;
+         }
+      }
+      for (n= 0; n < (unsigned)DIM(sbox); ++n) {
+         fprintf(stderr, ", 0x%02x", sbox[n]);
       }
    }
    if (getchar() != 'I') goto usage;

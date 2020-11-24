@@ -1,4 +1,5 @@
 .POSIX:
+# v2020.324
 
 # Preset portable default build options. Override by either assigning some of
 # those directly as part of the "make" command-line arguments. Or export

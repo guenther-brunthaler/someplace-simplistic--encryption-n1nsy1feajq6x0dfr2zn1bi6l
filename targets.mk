@@ -1,5 +1,5 @@
-rc4drop3072: rc4drop3072.o $(LIBS)
-	$(CC) $(LDFLAGS) -o $@ rc4drop3072.o $(LIBS)
+rc4dropN: rc4dropN.o $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ rc4dropN.o $(LIBS)
 rc4hash: rc4hash.o $(LIBS)
 	$(CC) $(LDFLAGS) -o $@ rc4hash.o $(LIBS)
 treyfer-ofb: treyfer-ofb.o $(LIBS)

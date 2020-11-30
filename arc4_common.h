@@ -2,7 +2,7 @@
  * C Macros implementing the basic ARCFOUR algorithm for shared use in
  * different applications.
  *
- * Version 2020.321
+ * Version 2020.335
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -19,7 +19,7 @@
 #define ARCFOUR_VARDEFS(stclass) \
    stclass unsigned char s[SBOX_SIZE], v1, v2; \
    unsigned i, j
-#define ARCFOUR_STEP_1 for (i= SBOX_SIZE; i-- ;) s[i]= (unsigned char)i;
+#define ARCFOUR_STEP_1 for (i= SBOX_SIZE; i-- ;) s[i]= (unsigned char)i
 #define ARCFOUR_STEP_2 i= j= 0
 #define ARCFOUR_STEP_3 i= SBOX_MOD(i + 1)
 #define ARCFOUR_STEP_4_SETUP(keyoctet) j= SBOX_MOD(j + s[i] + keyoctet)

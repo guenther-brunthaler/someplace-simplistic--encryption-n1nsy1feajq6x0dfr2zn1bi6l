@@ -69,7 +69,7 @@ static char help[]= { /* Formatted as 66 output columns. */
 
 #define ADD_MOD256(v, inc) ((v)= (v) + (inc) & 256 - 1)
 #define SUB_MOD256(v, dec) ADD_MOD256(v, 256 - (dec))
-#define ASSERT_MOD256(c) assert(c >= 0); assert(c < 256)
+#define ASSERT_MOD256(c) assert((c) >= 0); assert((c) < 256)
 #define READ_CSPRNG(c, i) { \
    if (((c)= fgetc(r[i])) == EOF) { \
       ea= (i); goto read_stream_error; \

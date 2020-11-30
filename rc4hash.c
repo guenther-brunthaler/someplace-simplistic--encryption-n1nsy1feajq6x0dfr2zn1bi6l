@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.335"
+#define VERSTR_1 "Version 2020.335.1"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -139,34 +139,39 @@ static char const hex_alphabet[]= {
 int main(int argc, char **argv) {
    char const *error= 0;
    int a= 0;
-   long digest_chars= 0;
+   unsigned long digest_chars= 0;
    char const *alphabet= b32custom_alphabet;
-   int alphabet_bitmask= (int)DIM(b32custom_alphabet) - 1, alphabet_bits;
+   unsigned alphabet_bitmask= (int)DIM(b32custom_alphabet) - 1, alphabet_bits;
    ARCFOUR_VARDEFS(static);
    {
       int optpos= 0;
-      long digest_bits= 256;
+      unsigned long digest_bits= 256;
       for (;;) {
          int opt;
          switch (opt= getopt_simplest(&a, &optpos, argc, argv)) {
             case 0: goto no_more_options;
             case 'x':
                alphabet= hex_alphabet;
-               alphabet_bitmask= (int)DIM(hex_alphabet) - 1;
+               alphabet_bitmask= (unsigned)DIM(hex_alphabet) - 1;
                break;
             case 'r': alphabet= 0; alphabet_bitmask= (1 << 8) - 1; break;
             case 'b': case 'B': case 'c':
                {
-                  char const *optarg;
-                  if (!(optarg= getopt_simplest_mand_arg(
+                  union {
+                     char const *str;
+                     long val;
+                  } optarg;
+                  if (!(optarg.str= getopt_simplest_mand_arg(
                      &a, &optpos, argc, argv
                   ))) {
                      getopt_simplest_perror_missing_arg(opt); goto leave;
                   }
-                  if ((digest_bits= atol(optarg)) < 1) {
+                  if ((optarg.val= atol(optarg.str)) < 1) {
                      bad_digest_size:
                      error= "Invalid digest size requested!"; goto fail;
                   }
+                  digest_bits= (unsigned long)optarg.val;
+                  assert((long)digest_bits == optarg.val);
                }
                switch (opt) {
                   case 'c':
@@ -174,7 +179,7 @@ int main(int argc, char **argv) {
                      break;
                   case 'B':
                      {
-                        long old= digest_bits;
+                        unsigned long old= digest_bits;
                         if ((digest_bits<<= 3) <= old) goto bad_digest_size;
                      }
                }
@@ -186,7 +191,7 @@ int main(int argc, char **argv) {
       }
       no_more_options:
       {
-         int bm;
+         unsigned bm;
          for (alphabet_bits= bm= 0; bm != alphabet_bitmask; ++alphabet_bits) {
             bm+= bm + 1;
          }
@@ -239,8 +244,8 @@ int main(int argc, char **argv) {
       }
       /* Produce the message digest. */
       {
-         long k;
-         int buf, bufbits= 0;
+         unsigned long k;
+         unsigned buf, bufbits= 0;
          #ifndef NDEBUG
             buf= 0;
          #endif
@@ -255,10 +260,10 @@ int main(int argc, char **argv) {
             }
             assert(bufbits >= alphabet_bits);
             {
-               int c= buf >> bufbits - alphabet_bits & alphabet_bitmask;
-               if (alphabet) c= alphabet[c];
+               unsigned c= buf >> bufbits - alphabet_bits & alphabet_bitmask;
+               if (alphabet) c= (unsigned)alphabet[c];
                bufbits-= alphabet_bits;
-               if (putchar(c) != c) goto wrerr;
+               if (putchar((int)c) != (int)c) goto wrerr;
             }
          }
          if (a < argc) {

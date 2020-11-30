@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.335"
+#define VERSTR_1 "Version 2020.335.1"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -67,7 +67,15 @@ static char help[]= { /* Formatted as 66 output columns. */
 #include <stdio.h>
 #include <assert.h>
 
-#define ADD_MOD256(v, inc) ((v)= (v) + (inc) & 0xff)
+#define ADD_MOD256(v, inc) ((v)= (v) + (inc) & 256 - 1)
+#define SUB_MOD256(v, dec) ADD_MOD256(v, 256 - (dec))
+#define ASSERT_MOD256(c) assert(c >= 0); assert(c < 256)
+#define READ_CSPRNG(c, i) { \
+   if (((c)= fgetc(r[i])) == EOF) { \
+      ea= (i); goto read_stream_error; \
+   } \
+   ASSERT_MOD256(c); \
+}
 
 int main(int argc, char **argv) {
    char const *error= 0;
@@ -86,6 +94,21 @@ int main(int argc, char **argv) {
          }
       }
    }
+   read_stream_error:
+   if (ferror(r[ea])) {
+      (void)fputs("Error reading from", stderr);
+   } else {
+      (void)fputs(
+         "Premature end of stream encountered while reading from", stderr
+      );
+   }
+   add_nonarg:
+   ea+= a;
+   add_arg:
+   (void)fputs(" \"", stderr);
+   (void)fputs(argv[ea], stderr);
+   error= "\"!";
+   goto fail;
    no_more_options:
    {
       int i;
@@ -94,11 +117,7 @@ int main(int argc, char **argv) {
          assert(a + i < argc);
          if (!(r[i]= fopen(argv[a + i], "rb"))) {
             (void)fputs("Could not open", stderr);
-            ea= a + i;
-            add_arg:
-            (void)fputs(" \"", stderr);
-            (void)fputs(argv[ea], stderr);
-            error= "\"!"; goto fail;
+            ea= a + i; goto add_arg;
          }
       }
       if (a + i != argc) goto usage;
@@ -108,45 +127,25 @@ int main(int argc, char **argv) {
       case 1: /* Encryption. */
          while ((out= getchar()) != EOF) {
             int c;
-            assert(out >= 0); assert(out < 256);
-            if ((c= fgetc(r[2])) == EOF) {
-               ea= 2;
-               read_stream_error:
-               if (ferror(r[ea])) {
-                  (void)fputs("Error reading from", stderr);
-               } else {
-                  (void)fputs(
-                        "Premature end of stream encountered"
-                        " while reading from"
-                     ,  stderr
-                  );
-               }
-               ea+= a;
-               goto add_arg;
-            }
-            assert(c >= 0); assert(c < 256);
-            ADD_MOD256(out, 256 - c);
-            if ((c= fgetc(r[1])) == EOF) { ea= 1; goto read_stream_error; }
-            assert(c >= 0); assert(c < 256);
+            ASSERT_MOD256(out);
+            READ_CSPRNG(c, 2);
+            SUB_MOD256(out, c);
+            READ_CSPRNG(c, 1);
             out^= c;
-            if ((c= fgetc(r[0])) == EOF) { ea= 0; goto read_stream_error; }
-            assert(c >= 0); assert(c < 256);
-            ADD_MOD256(out, 256 - c);
+            READ_CSPRNG(c, 0);
+            SUB_MOD256(out, c);
             if (putchar(out) != out) goto wrerr;
          }
          break;
       case 0: /* Decryption. */
          while ((out= getchar()) != EOF) {
             int c;
-            assert(out >= 0); assert(out < 256);
-            if ((c= fgetc(r[0])) == EOF) { ea= 0; goto read_stream_error; }
-            assert(c >= 0); assert(c < 256);
+            ASSERT_MOD256(out);
+            READ_CSPRNG(c, 0);
             ADD_MOD256(out, c);
-            if ((c= fgetc(r[1])) == EOF) { ea= 1; goto read_stream_error; }
-            assert(c >= 0); assert(c < 256);
+            READ_CSPRNG(c, 1);
             out^= c;
-            if ((c= fgetc(r[2])) == EOF) { ea= 2; goto read_stream_error; }
-            assert(c >= 0); assert(c < 256);
+            READ_CSPRNG(c, 2);
             ADD_MOD256(out, c);
             if (putchar(out) != out) goto wrerr;
          }
@@ -168,7 +167,7 @@ int main(int argc, char **argv) {
          r[ea]= 0;
          if (fclose(fh)) {
             (void)fputs("Error closing input stream", stderr);
-            ea+= a; goto add_arg;
+            goto add_nonarg;
          }
       }
    }

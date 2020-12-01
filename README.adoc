@@ -28,10 +28,10 @@ Then use the first 256 output bits of the 'ARCFOUR'-variant
 pseudorandom stream as a message digest and output it, encoded as
 a base-32 string using a custom alphabet.
 
-The custom base-32 alphabet uses all ASCII upper-case letters and
-decimal digits, excluding "0" (zero), "1" (one), "I" like India
-and "O" like Oscar. Alternative supported digest output formats
-are hexadecimal and binary raw bytes.
+The custom base-32 alphabet uses all ASCII upper-case letters and 
+decimal digits, excluding "`0`" (zero), "`1`" (one), "`I`" like 
+India and "`O`" like Oscar. Alternative supported digest output 
+formats are hexadecimal and binary raw bytes.
 
 The 'ARCFOUR'-variant is a minimally modified 'ARCFOUR-drop3072'
 algorithm: Its key setup processes all octets of the key exactly
@@ -42,15 +42,17 @@ in order to discard its first 3072 generated pseudorandom output
 octets. This prevents some known attacks against the unmodified
 algorithm.
 
-While I a have serious doubts whether or not this hash algorithm
-is cryptographically secure, it certainly is fast as hell.
+While I a have serious doubts whether this hash algorithm is 
+cryptographically secure, it certainly is fast as hell.
 
-When unsed inside of an encrypted message, i. e. MtE, then its
-cryptographic shortcomings should not be too significant. It
+When unsed inside of an encrypted message, i. e. MtE, expecially 
+when combined with `sxs-crypt` (see below), then its 
+cryptographic shortcomings should not be too significant. It 
 would probably be a bad choice for EtM, though.
 
-Use it in situations when you want a very fast hash output that
-is much larger than that of cksum and much faster than md5sum.
+Use it in situations when you want a very fast hash output that 
+is much larger than that of `cksum` and much faster than 
+`md5sum`.
 
 The code footprint of the implementation is also very small,
 because 'ARCFOUR' is a much simpler algorithm than any known
@@ -77,10 +79,10 @@ utilties have been added as well:
   than 'ARCFOUR'.
 
 * `sxs-crypt` - Encrypts or decrypts standard input with three
-  one-time-pads using a simple 'SUBTRACT-XOR-SUBTRACT' scheme.
-  The one-time-pads usually come from a pipe and are provided by
-  CSPRNGs (cryptographically secure pseudo random number
-  generator). `rc4dropN` and `treyfer-ofb` can both be used as
-  CSPRNGs by encrypting `/dev/zero`. `sxs-crypt` eliminates the
-  immediate threat of bit flipping attacks otherwise possible
+  one-time-pads using a simple 'SUBTRACT-XOR-SUBTRACT' scheme. 
+  The one-time-pads usually come from a pipe and are provided by 
+  'CSPRNGs' (cryptographically secure pseudo random number 
+  generator). `rc4dropN` and `treyfer-ofb` can both be used as 
+  'CSPRNGs' by encrypting `/dev/zero`. `sxs-crypt` eliminates the 
+  immediate threat of bit flipping attacks otherwise possible 
   with any one-time pad encryption.

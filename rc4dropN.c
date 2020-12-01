@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.335"
+#define VERSTR_1 "Version 2020.336"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -27,8 +27,8 @@ static char help[]= { /* Formatted as 66 output columns. */
    "\n"
    "<N> is a parameter of the algorithm. It specifies the initial\n"
    "number of generated pseudorandom bytes which will be thrown away\n"
-   "and not be used for encryption/decryption. This hardens the\n"
-   "algorithm against several known attacks.\n"
+   "and not be used for actual encryption/decryption. This hardens\n"
+   "the algorithm against several known attacks.\n"
    "\n"
    "ARCFOUR-drop768 is a frequent choice, but ARCFOUR-drop3072 is\n"
    "recommended as a more conservative and even safer choice.\n"
@@ -37,8 +37,8 @@ static char help[]= { /* Formatted as 66 output columns. */
    "All key sizes from 1 through 256 octets are supported. However,\n"
    "the internal state of ARCFOUR can only represent 256! different\n"
    "keys, and a key made of 211 random octets is enough to provide\n"
-   "this information. Longer keys will therefore not provide more\n"
-   "security than this.\n"
+   "this information. Longer random keys will therefore not provide\n"
+   "more security than this.\n"
    "\n"
    "Note that the same key must *never* be reused for different\n"
    "messages! Hash some password and a nonce (salt) to derive the\n"
@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
    {
       int c;
       if ((c= getchar()) == EOF) goto usage;
-      drops= (unsigned)c;
+      drops= (unsigned)c << 8;
    }
    if (getchar() != 'Z') goto usage;
    {
@@ -94,16 +94,17 @@ int main(int argc, char **argv) {
    /* Process the fixed-size key. */
    {
       unsigned n, k;
-      for (n= k= 0; n < key_size; ++n) {
+      for (n= k= 0; n < SBOX_SIZE; ++n) {
          static unsigned char recycle[SBOX_SIZE >> 1];
          int c;
-         if (n > key_size) {
+         if (n >= key_size) {
             assert(k == n % key_size);
             assert(k < DIM(recycle));
             c= recycle[k];
          } else {
             if ((c= getchar()) == EOF) goto usage;
             assert(c >= 0); assert(c < SBOX_SIZE);
+            assert(n == k);
             if (n < (unsigned)DIM(recycle)) recycle[n]= (unsigned char)c;
          }
          if (++k == key_size) k= 0;

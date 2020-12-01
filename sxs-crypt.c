@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.335.1"
+#define VERSTR_1 "Version 2020.336"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -14,10 +14,12 @@ static char help[]= { /* Formatted as 66 output columns. */
    "sxs-crypt -e <r0> <r1> <r2> < <plaintext> > <ciphertext>\n"
    "sxs-crypt -d <r0> <r1> <r2> < <ciphertext> > <plaintext>\n"
    "\n"
-   "where\n"
+   "Supported options:\n"
    "\n"
    "-e: Selects encryption mode\n"
    "-d: Selects decryption mode\n"
+   "-h: Display this help and exit\n"
+   "-V: Display version information and exit\n"
    "\n"
    "The binary data to be encrypted or decrypted will be read\n"
    "from standard input and the result will be written to standard\n"
@@ -53,6 +55,9 @@ static char help[]= { /* Formatted as 66 output columns. */
    "where '^' is the bitwise XOR-operation, '+' is addition modulo\n"
    "256, and '-' is subtraction modulo 256.\n"
    "\n"
+};
+
+static char version_info[]= {
    VERSTR_1 "\n"
    "\n"
    VERSTR_2 " All rights reserved.\n"
@@ -90,6 +95,8 @@ int main(int argc, char **argv) {
             case 0: goto no_more_options;
             case 'e': if (encrypt == 0) goto usage; encrypt= 1; break;
             case 'd': if (encrypt == 1) goto usage; encrypt= 0; break;
+            case 'h': usage: (void)fputs(help, stderr); /* Fall through. */
+            case 'V': error= version_info; goto fail;
             default: getopt_simplest_perror_opt(opt); goto leave;
          }
       }
@@ -113,7 +120,7 @@ int main(int argc, char **argv) {
    {
       int i;
       for (i= 0; i < (int)DIM(r); ++i) {
-         if (a + i == argc) { usage: error= help; goto fail; }
+         if (a + i == argc) goto usage;
          assert(a + i < argc);
          if (!(r[i]= fopen(argv[a + i], "rb"))) {
             (void)fputs("Could not open", stderr);

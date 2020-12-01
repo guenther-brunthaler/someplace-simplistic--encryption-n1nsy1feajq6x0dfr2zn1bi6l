@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.336"
+#define VERSTR_1 "Version 2020.336.1"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -93,22 +93,21 @@ int main(int argc, char **argv) {
    ARCFOUR_STEP_2;
    /* Process the fixed-size key. */
    {
-      unsigned n, k;
-      for (n= k= 0; n < SBOX_SIZE; ++n) {
+      unsigned k;
+      for (i= k= 0; i < SBOX_SIZE; ++i) {
          static unsigned char recycle[SBOX_SIZE >> 1];
          int c;
-         if (n >= key_size) {
-            assert(k == n % key_size);
+         if (i >= key_size) {
+            assert(k == i % key_size);
             assert(k < DIM(recycle));
             c= recycle[k];
          } else {
             if ((c= getchar()) == EOF) goto usage;
             assert(c >= 0); assert(c < SBOX_SIZE);
-            assert(n == k);
-            if (n < (unsigned)DIM(recycle)) recycle[n]= (unsigned char)c;
+            assert(i == k);
+            if (i < (unsigned)DIM(recycle)) recycle[i]= (unsigned char)c;
          }
          if (++k == key_size) k= 0;
-         ARCFOUR_STEP_3;
          assert(c >= 0); assert(c < SBOX_SIZE);
          ARCFOUR_STEP_4_SETUP((unsigned)c);
          ARCFOUR_STEP_5_DROP;

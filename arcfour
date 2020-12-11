@@ -81,13 +81,23 @@ exit_help() {
 	echo; exit_version "$@"
 }
 
+die() {
+	echo "$*" >& 2
+	false || exit
+}
+
+ckuint() {
+	expr x"$OPTARG" = x0 '|' x"$OPTARG" : x'[1-9][0-9]*$' > /dev/null \
+		|| die "Bad count '$OPTARG'!"
+}
+
 drop=0
-generate=0
+generate=
 while getopts d:g:hV opt
 do
 	case $opt in
-		d) drop=$OPTARG;;
-		g) generate=$OPTARG;;
+		d) ckuint; drop=$OPTARG;;
+		g) ckuint; generate=$OPTARG;;
 		h) exit_help;;
 		V) exit_version;;
 		*) false || exit
@@ -95,14 +105,122 @@ do
 done
 shift `expr $OPTIND - 1 || :`
 
-die() {
-	echo "$*" >& 2
-	false || exit
-}
-
 case $# in
 	1) ;;
 	*) exit_help `false || echo $?` >& 2
 esac
 
 test -f "$1" || die "Binary key file '$1' not found!"
+
+alias decdump='od -vt u1'
+
+{
+	decdump < "$1" | sed 's/^/K /'
+	echo D $drop
+	case $generate in
+		'') decdump;;
+		*) echo G $generate
+	esac
+} | awk -v failure=`false || echo $?` -f /dev/fd/5 5<< 'EOF'
+
+# Globals:
+# i, i1, i2, s[256], ki, kr[128], h42o[16], xor4[16, 16], o2h4[256], o2l4[256].
+
+$1 == "K" { for (i= 3; i <= NF; ++i) append_key_octet($i); next }
+
+$1 == "D" {
+	check_number(i= $2); finish_key_setup()
+	while (i--) dencrypt(0)
+	next
+}
+
+$1 == "G" { check_number(i= $2); while (i--) print dencrypt(0); exit }
+
+{ for (i= 2; i <= NF; ++i) {print "CRYPTED: " dencrypt($i)} }
+
+BEGIN {
+	for (i= 256; i--; ) s[i]= i
+	make_lookup_tables()
+	prepare(); ki= 0
+}
+
+function prepare() {
+	i1= i2= 0
+}
+
+function append_key_octet(k    , t) {
+	if (ki < 128) kr[ki]= k
+	++ki
+	i2= add_mod256(add_mod256(i2, s[i1]), k)
+	t= s[i1]; s[i1]= s[i2]; s[i2]= t
+	i1= add_mod256(i1, 1)
+}
+
+function finish_key_setup(    klen) {
+	klen= ki
+	for (i= 0; ki != 256; ) {
+		append_key_octet(kr[i])
+		if (++i == klen) i= 0
+	}
+	prepare()
+}
+
+function dencrypt(t    , v1, v2) {
+	i1= add_mod256(i1, 1)
+	i2= add_mod256(i2, s[i1])
+	v1= s[i1]; s[i1]= v2= s[i2]; s[i2]= v1
+	return xor8(t, s[add_mod256(v1, v2)])
+}
+
+function xor8(a, b) {
+	return h42o[xor4[o2h4[a], o2h4[b]]] + xor4[o2l4[a], o2l4[b]]
+}
+
+function add_mod256(a, b    , s) {
+	if ((s= a + b) < 256) return s
+	return s - 256
+}
+
+# Set up h42o[16], xor4[16, 16], o2h4[256] and o2l4[256].
+function make_lookup_tables(    s, j, o, b, c, t, l, r) {
+	# Set up high-nybble to octet lookup table.
+	for (i= 16; i--; ) h42o[i]= 16 * i
+	# Set up octet to high- and low-nybble lookup tables.
+	for (o= 256; o--; ) { o2h4[o]= int(o / 16); o2l4[o]= o % 16 }
+	# Set up b[16, 4] for nybble to bits lookup table.
+	for (i= 1; i < 16; ++i) {
+		c= 1
+		for (j= 0; j < 4; ++j) {
+			if (c= (s= b[i - 1, j] + c) > 1) s-= 2
+			b[i, j]= s
+		}
+	}
+	# Setup XOR truth table t[2, 2].
+	for (i= 2; i--; ) {
+		for (j= 2; j--; ) t[i, j]= (i || j) && !(i && j)
+	}
+	# Setup XOR lookup table for nybble pairs.
+	for (o= 0; o < 256; ++o) {
+		l= o2h4[o]; r= o2l4[o]
+		i= 1
+		for (j= s= 0; j < 4; ++j) {
+			if (t[b[l, j], b[r, j]]) s+= i
+			i+= i
+		}
+		xor4[l, r]= s
+		printf "xor[%#04x, %#04x]= %#04x\n", l, r, s
+	}
+}
+
+function check_number(n    , n1) {
+	n1= n + 1; n1-= n
+	if ("x" n1 == "x1") return
+	die("Numeric overflow for argument '" n "'!")
+}
+
+function die(msg) {
+	print msg >> "/dev/stderr"
+	exit failure
+}
+
+EOF

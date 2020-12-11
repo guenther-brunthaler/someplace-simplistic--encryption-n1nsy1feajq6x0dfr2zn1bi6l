@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2020.346
+Version 2020.346.1
 
 Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
 
@@ -123,8 +123,8 @@ alias decdump='od -vt u1'
 	esac
 } | awk -v failure=`false || echo $?` -f /dev/fd/5 5<< 'EOF'
 
-# Globals:
-# i, i1, i2, s[256], ki, kr[128], h42o[16], xor4[16, 16], o2h4[256], o2l4[256].
+# Globals: i, i1, i2, s[256], ki, kr[128], oitems, oline.
+# "final" globals: h42o[16], xor4[16, 16], o2h4[256], o2l4[256].
 
 $1 == "K" { for (i= 3; i <= NF; ++i) append_key_octet($i); next }
 
@@ -134,9 +134,9 @@ $1 == "D" {
 	next
 }
 
-$1 == "G" { check_number(i= $2); while (i--) print dencrypt(0); exit }
+$1 == "G" { check_number(i= $2); while (i--) emit(dencrypt(0)); exit }
 
-{ for (i= 2; i <= NF; ++i) {print "CRYPTED: " dencrypt($i)} }
+{ for (i= 2; i <= NF; ++i) emit(dencrypt($i)) }
 
 BEGIN {
 	for (i= 256; i--; ) s[i]= i
@@ -182,34 +182,31 @@ function add_mod256(a, b    , s) {
 }
 
 # Set up h42o[16], xor4[16, 16], o2h4[256] and o2l4[256].
-function make_lookup_tables(    s, j, o, b, c, t, l, r) {
-	# Set up high-nybble to octet lookup table.
-	for (i= 16; i--; ) h42o[i]= 16 * i
-	# Set up octet to high- and low-nybble lookup tables.
-	for (o= 256; o--; ) { o2h4[o]= int(o / 16); o2l4[o]= o % 16 }
-	# Set up b[16, 4] for nybble to bits lookup table.
-	for (i= 1; i < 16; ++i) {
-		c= 1
-		for (j= 0; j < 4; ++j) {
-			if (c= (s= b[i - 1, j] + c) > 1) s-= 2
-			b[i, j]= s
+function make_lookup_tables(    s, j, o, b, c, m, b1, b2, l4, h4) {
+	for (o= l4= h4= 0; o != 256; ++o) {
+		o2h4[o]= h4; o2l4[o]= l4
+		if (l4 == 0) h42o[h4]= o
+		c= m= 1
+		for (i= s= 0; i < 4; m+= m) {
+			b1= b[i]; b2= b[i++ + 4]
+			if ((b1 || b2) && !(b1 && b2)) s+= m
+		}
+		xor4[h4, l4]= s
+		if (++l4 == 16) { ++h4; l4= 0 }
+		for (i= 0; c; ++i) {
+			if (c= (s= b[i] + c) > 1) s-= 2
+			b[i]= s
 		}
 	}
-	# Setup XOR truth table t[2, 2].
-	for (i= 2; i--; ) {
-		for (j= 2; j--; ) t[i, j]= (i || j) && !(i && j)
-	}
-	# Setup XOR lookup table for nybble pairs.
-	for (o= 0; o < 256; ++o) {
-		l= o2h4[o]; r= o2l4[o]
-		i= 1
-		for (j= s= 0; j < 4; ++j) {
-			if (t[b[l, j], b[r, j]]) s+= i
-			i+= i
-		}
-		xor4[l, r]= s
-		printf "xor[%#04x, %#04x]= %#04x\n", l, r, s
-	}
+}
+
+function emit(val) {
+	if (oitems == 20) { print oline; oitems= 0 }
+	oline= oitems++ ? oline " " val : val
+}
+
+END {
+	if (oitems) print oline
 }
 
 function check_number(n    , n1) {

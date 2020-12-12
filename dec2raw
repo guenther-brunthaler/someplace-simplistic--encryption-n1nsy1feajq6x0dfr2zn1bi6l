@@ -1,0 +1,66 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2020.346
+
+Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - Convert ASCII decimal numbers into binary raw data|
+|
+Usage: $APP [ <options> ] [ -- ] < <input_file>|
+|
+$APP reads unsigned decimal integer values in ASCII encoding (separated by |
+whitespace) from standard input, interprets them as octet values, and writes |
+the raw binary octets corresponding to those values to standard output.|
+|
+|
+Options supported:|
+|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+|
+|
+The purpose for $APP is to reverse the effect of the 'raw2dec' utility.|
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+xargs printf ' \\\\0%03o' | xargs printf '%b'

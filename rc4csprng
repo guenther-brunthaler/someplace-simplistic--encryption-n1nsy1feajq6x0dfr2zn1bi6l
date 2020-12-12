@@ -1,0 +1,250 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2020.346
+
+Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - POSIX shell/AWK implementation of the ARCFOUR cryptographically secure |
+pseudorandom number generator (with an extension for keys longer than 256 |
+octets)|
+|
+Usage: $APP [ <options> ] [ -- ] < <input_stream>|
+|
+$APP reads ASCII words (separated by whitespace) from standard input and |
+interprets them according to one of the following expected two formats:|
+|
+<key> [ D <drop> ] G <count>|
+|
+<key> [ D <drop> ] [ P <passthrough_count> ] [ R <random_count> ] T <data>|
+|
+where|
+|
+"[ ... ]" means that "..." is optional any may be omitted|
+|
+"D", "G", etc.: those literal one-character words represent themselves|
+|
+<key>: An arbitrary number of decimal numbers which will be interpreted as |
+the octet values of the encryption key octets.|
+|
+D <drop>: The count of initial generated pseudorandom numbers which will not |
+be output but rather be discarded silently. Defaults to 0 if omitted. By |
+specifying "D 3072" (recommended for enhanced security), $APP is effectively |
+changed into ARCFOUR-drop3072.|
+|
+G <count>: Emit <count> pseudorandom numbers at this point|
+|
+P <passthrough_count>: Determines the number of <data> values which will be |
+copied through to the output before inserting <random_count> pseudorandom |
+numbers and repeating the cycle until the end of <data>. Defaults to 1.|
+|
+R <random_count>: The number of pseudorandom values to be inserted after |
+every <passthrough_count> input values from <data>. Defaults to 1.|
+|
+T <data>: An arbitrary number of decimal numbers which will be interpreted as |
+the octet values of the plaintext or ciphertext octets to be encrypted or |
+decrypted.|
+|
+|
+All "<...>" items explained above must be unsigned decimal integer numbers in |
+ASCII encoding.|
+|
+The output of $APP will also be ASCII decimal number with 20 numbers per line |
+(except for the last line which might be shorter).|
+|
+|
+Options supported:|
+|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+|
+$APP implements an extension to the original ARCFOUR key setup algorithm |
+which only kicks in for keys longer than 256 octets: In this case, the |
+remaining octets of the key will be processed in exactly the same way as the |
+key octets before. Key setup will simply not stop after 256 key octets have |
+been processed. Neither will it ignore the rest of the key as the original |
+key setup would do.|
+|
+|
+Keystream mode|
+--------------|
+|
+Use the "G" token in order to generate deterministic pseudorandom numbers |
+from the key. This can be used for the following:|
+|
+* deterministic random number generation (using the key as the random seed)|
+|
+* key stretching (a longer binary key is needed then available)|
+|
+* key compaction (a shorter binary key is needed than available)|
+|
+* salt stretching (more salt bytes are required than available)|
+|
+* password-based key derivation (PBKDF)|
+|
+* hashing (cryptographically non-secure, though)|
+|
+|
+Encryption/Decryption preparation|
+---------------------------------|
+|
+Although $APP by itself does not encrypt or decrypt data, it can prepare it |
+for encryption or decryption by interleaving the input data with pseudorandom |
+values.|
+|
+Other utilities can then combine the data and the pseudorandom values to |
+actually encrypt/decrypt the data, such as by bitwise combining them with |
+XOR.|
+|
+This mode of operation is automatically enabled when the "G" token is not |
+present in the input.|
+|
+By default, the output then consists of the next <data> value followed by the |
+next pseudoramdom value. This repeats until <data> is exhausted.|
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts d:g:hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+awk -v failure=`false || echo $?` -f /dev/fd/5 5<< 'EOF'
+
+# Globals: i, i1, i2, j, ki, kr[128], mode, oitems, oline, passed_through,
+# passthrough_count, random_count, s[256].
+
+BEGIN {
+	preset_key(); prepare(); mode= "K"
+	passthrough_count= random_count= 1
+}
+
+{
+	for (i= 1; i <= NF; ++i) {
+		if (mode == "T") {
+			emit($i)
+			if (++passed_through == passthrough_count) {
+				for (j= random_count; j--; ) emit(generate())
+				passed_through= 0
+			}
+		} else if ($i ~ /^[DGPRT]$/) {
+			if (mode == "K") finish_key_setup()
+			mode= $i
+		} else if (mode == "K") {
+			append_key_octet($i)
+		} else if (mode == "D") {
+			check_number(j= $i)
+			while (j--) generate()
+			mode= "?" mode
+		} else if (mode == "G") {
+			check_number(j= $i)
+			while (j--) emit(generate())
+			mode= "?" mode
+		} else if (mode == "P") {
+			check_number(passthrough_count= $i)
+			mode= "?" mode
+		} else if (mode == "R") {
+			check_number(random_count= $i)
+			mode= "?" mode
+		} else {
+			die("Invalid input syntax lead to state '$mode'")
+		}
+	}
+}
+
+function preset_key(    i) {
+	for (i= 256; i--; ) s[i]= i
+	ki= 0
+}
+
+function prepare() {
+	i1= i2= 0
+}
+
+function append_key_octet(k    , t) {
+	if (ki < 128) kr[ki]= k
+	++ki
+	i2= add_mod256(add_mod256(i2, s[i1]), k)
+	t= s[i1]; s[i1]= s[i2]; s[i2]= t
+	i1= add_mod256(i1, 1)
+}
+
+function finish_key_setup(    i, klen) {
+	klen= ki
+	for (i= 0; ki != 256; ) {
+		append_key_octet(kr[i])
+		if (++i == klen) i= 0
+	}
+	prepare()
+}
+
+function generate(    v1, v2) {
+	i1= add_mod256(i1, 1)
+	i2= add_mod256(i2, s[i1])
+	v1= s[i1]; s[i1]= v2= s[i2]; s[i2]= v1
+	return s[add_mod256(v1, v2)]
+}
+
+function add_mod256(a, b    , s) {
+	if ((s= a + b) < 256) return s
+	return s - 256
+}
+
+function emit(val) {
+	if (oitems == 20) { print oline; oitems= 0 }
+	oline= oitems++ ? oline " " val : val
+}
+
+END {
+	if (oitems) print oline
+}
+
+function check_number(n    , n1) {
+	if (!(n ~ /^[1-9][0-9]*$/ || "x" n == "x0")) {
+		die("invalid count '" n "'")
+	}
+	n1= n + 1; n1-= n
+	if ("x" n1 == "x1") return
+	die("Numeric overflow for argument '" n "'!")
+}
+
+function die(msg) {
+	print msg >> "/dev/stderr"
+	exit failure
+}
+
+EOF

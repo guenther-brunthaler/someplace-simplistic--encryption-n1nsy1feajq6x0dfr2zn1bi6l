@@ -1,0 +1,81 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2020.346
+
+Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - Convert binary raw data into ASCII decimal numbers|
+|
+Usage: $APP [ <options> ] [ -- ] < <input_file>|
+|
+$APP reads binary (or text) data from standard input, and writes the byte |
+values to standard output, 20 values per line (except for the last line which |
+might be shorter).|
+|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+|
+The purpose for $APP is to convert binary raw data into a form which can be |
+easily processed as numeric values by UNIX text utilities like awk, sed and |
+sh.|
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+# We avoid the -An option of "of" because at least some BusyBox
+# implementations of "od" do not support it.
+od -vt u1 | awk -f /dev/fd/5 5<< 'EOF'
+
+# Globals: i, oitems, oline.
+
+{ for (i= 2; i <= NF; ++i) emit($i) }
+
+function emit(val) {
+	if (oitems == 20) { print oline; oitems= 0 }
+	oline= oitems++ ? oline " " val : val
+}
+
+END {
+	if (oitems) print oline
+}
+
+EOF

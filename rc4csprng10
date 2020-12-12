@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2020.346
+Version 2020.347
 
 Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
 
@@ -181,7 +181,10 @@ BEGIN {
 			check_number(random_count= $i)
 			mode= "?" mode
 		} else {
-			die("Invalid input syntax lead to state '$mode'")
+			die( \
+				"Invalid input syntax lead to unexpected" \
+				" input '" $i "' in state '" mode "'" \
+			)
 		}
 	}
 }
@@ -196,8 +199,10 @@ function prepare() {
 }
 
 function append_key_octet(k    , t) {
-	if (ki < 128) kr[ki]= k
-	++ki
+	if (ki != 256) {
+		if (ki < 128) kr[ki]= k
+		++ki
+	}
 	i2= add_mod256(add_mod256(i2, s[i1]), k)
 	t= s[i1]; s[i1]= s[i2]; s[i2]= t
 	i1= add_mod256(i1, 1)

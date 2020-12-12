@@ -1,0 +1,13 @@
+Test vectors for the original ARCFOUR algorithm:
+
+* files i? are the binary inputs for the test
+* files k? are the corresponding binary encryption keys
+* files o? are the expected binary results of the encryption
+
+"original" means that no "drop"-parameter is used (i. e. no 
+initial part of the output keystream is dropped) and the 
+modifications to the original key setup have no effect because 
+the keys of the test vectors are too short for that.
+
+Format of THIS text: Flowed (space at EOL indicates the next line 
+is a continuation of the current one within the same paragraph.)

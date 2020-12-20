@@ -1,13 +1,7 @@
-rc4dropN.o: arc4_common.h
-rc4dropN.o: fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h
-rc4dropN.o: rc4dropN.c
-rc4hash.o: arc4_common.h
-rc4hash.o: fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h
-rc4hash.o: fragments/include/getopt_nh7lll77vb62ycgwzwf30zlln.h
-rc4hash.o: rc4hash.c
-sxs-crypt.o: fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h
-sxs-crypt.o: fragments/include/getopt_nh7lll77vb62ycgwzwf30zlln.h
-sxs-crypt.o: sxs-crypt.c
+rc4sxs-crypt.o: arc4_common.h
+rc4sxs-crypt.o: fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h
+rc4sxs-crypt.o: fragments/include/getopt_nh7lll77vb62ycgwzwf30zlln.h
+rc4sxs-crypt.o: rc4sxs-crypt.c
 treyfer-ofb.o: arc4_common.h
 treyfer-ofb.o: fragments/include/dim_sdbrke8ae851uitgzm4nv3ea2.h
 treyfer-ofb.o: treyfer-ofb.c

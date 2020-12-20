@@ -1,9 +1,39 @@
-`rc4hash` - abuse ARCFOUR as a hash algorithm
-=============================================
+`rc4sxs-crypt` - abuse ARCFOUR for many things
+==============================================
 Guenther Brunthaler
 
-`rc4hash` is a tool similar to `sha256sum` but much simpler to
-implement, while still being reasonably fast.
+This project currently provides the following utilities:
+
+* `rc4sxs-crypt` - Encrypts or decrypts standard input with a 
+  minimally modified 'ARCFOUR-drop3072' stream cipher in a custom 
+  'SUBTRACT-XOR-SUBTRACT' mode of operation. This mode eliminates 
+  the immediate threat of bit flipping attacks otherwise possible 
+  with the standard XOR-mode of stream ciphers. `rc4sxs-crypt` can 
+  also be used as a hash function, as a cryptographically secure 
+  pseudo-random generator, as a password-based key derivation 
+  function (PBKDF), for MAC calculation, for key stretching, for 
+  salt stretching and for salt generation.
+
+* `treyfer-ofb` - Implements the 'treyfer' block cipher in 'OFB'
+  (output feedback) mode, making it into a stream cipher. The
+  cipher has been chosen because of its extreme simplicity,
+  similar in complexity to 'ARCFOUR'. The cipher itself is weak,
+  but combining it with `rc4sxs-crypt` will drastically reduce the
+  probability that known weaknesses in 'ARCFOUR' can be
+  exploited. Unfortunately, 'treyfer' is about 8 times slower
+  than 'ARCFOUR'.
+
+Both utilities can display their usage instructions by passing 
+"-h" as the only argument.
+
+The project provided a general-purpose cryptographic utilit
+
+
+`rc4sxs-crypt` is a tool similar to `sha256sum` but much simpler 
+to implement, while still being reasonably fast.
+
+Actually, it is an encryption utility, but it can be used for 
+hashing by feeding the data to be hashed as a key
 
 While 256 bit is the default, the size of the generated hash can
 in fact be chosen freely. This allows the utility also to be used
@@ -46,7 +76,7 @@ While I a have serious doubts whether this hash algorithm is
 cryptographically secure, it certainly is fast as hell.
 
 When unsed inside of an encrypted message, i. e. MtE, expecially 
-when combined with `sxs-crypt` (see below), then its 
+when combined with `rc4sxs-crypt` (see below), then its 
 cryptographic shortcomings should not be too significant. It 
 would probably be a bad choice for EtM, though.
 
@@ -64,25 +94,3 @@ It is therefore only efficient for larger files.
 
 Since the beginning of this project, a couple of additional
 utilties have been added as well:
-
-* `rc4dropN` - Implements the original 'ARCFOUR' algorithm as
-  well as its 'ARCFOUR-dropN' variants, such as 'ARCFOUR-drop768'
-  and 'ARCFOUR-drop3072'.
-
-* `treyfer-ofb` - Implements the 'treyfer' block cipher in 'OFB'
-  (output feedback) mode, making it into a stream cipher. The
-  cipher has been chosen because of its extreme simplicity,
-  similar in complexity to 'ARCFOUR'. The cipher itself is weak,
-  but combining it with `rc4dropN` will drastically reduce the
-  probability that known weaknesses in 'ARCFOUR' can be
-  exploited. Unfortunately, 'treyfer' is about 8 times slower
-  than 'ARCFOUR'.
-
-* `sxs-crypt` - Encrypts or decrypts standard input with three
-  one-time-pads using a simple 'SUBTRACT-XOR-SUBTRACT' scheme. 
-  The one-time-pads usually come from a pipe and are provided by 
-  'CSPRNGs' (cryptographically secure pseudo random number 
-  generator). `rc4dropN` and `treyfer-ofb` can both be used as 
-  'CSPRNGs' by encrypting `/dev/zero`. `sxs-crypt` eliminates the 
-  immediate threat of bit flipping attacks otherwise possible 
-  with any one-time pad encryption.

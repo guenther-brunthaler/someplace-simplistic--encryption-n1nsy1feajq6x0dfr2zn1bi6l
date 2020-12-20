@@ -211,16 +211,16 @@ int main(int argc, char **argv) {
          }
       }
       /* Hash current standard input */
-      ARCFOUR_STEP_1;
+      ARCFOUR_STEP_1_KEY;
       ARCFOUR_STEP_2;
       /* Process input as an (overly long) key to set. */
       {
          int c;
          while ((c= getchar()) != EOF) {
-            ARCFOUR_STEP_3;
             assert(c >= 0); assert(c < SBOX_SIZE);
-            ARCFOUR_STEP_4_SETUP((unsigned)c);
+            ARCFOUR_STEP_4_KEY((unsigned)c);
             ARCFOUR_STEP_5_DROP;
+            ARCFOUR_STEP_7_KEY;
          }
       }
       if (ferror(stdin)) {
@@ -237,9 +237,7 @@ int main(int argc, char **argv) {
       {
          unsigned k;
          for (k= DROP_N; k--; ) {
-            ARCFOUR_STEP_3;
-            ARCFOUR_STEP_4;
-            ARCFOUR_STEP_5_DROP;
+            ARCFOUR_STEP_3_PRNG; ARCFOUR_STEP_4_PRNG; ARCFOUR_STEP_5_DROP;
          }
       }
       /* Produce the message digest. */
@@ -252,10 +250,8 @@ int main(int argc, char **argv) {
          for (k= digest_chars; k--; ) {
             if (bufbits < alphabet_bits) {
                /* Append the bits of another ARCFOUR output octet to <buf>. */
-               ARCFOUR_STEP_3;
-               ARCFOUR_STEP_4;
-               ARCFOUR_STEP_5;
-               buf= buf << 8 | ARCFOUR_STEP_6();
+               ARCFOUR_STEP_3_PRNG; ARCFOUR_STEP_4_PRNG; ARCFOUR_STEP_5_PRNG;
+               buf= buf << 8 | ARCFOUR_STEP_6_PRNG();
                bufbits+= 8;
             }
             assert(bufbits >= alphabet_bits);

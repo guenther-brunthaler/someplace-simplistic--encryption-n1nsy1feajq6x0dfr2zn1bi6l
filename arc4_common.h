@@ -2,7 +2,7 @@
  * C Macros implementing the basic ARCFOUR algorithm for shared use in
  * different applications.
  *
- * Version 2020.335
+ * Version 2020.355
  *
  * Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
  *
@@ -19,11 +19,12 @@
 #define ARCFOUR_VARDEFS(stclass) \
    stclass unsigned char s[SBOX_SIZE], v1, v2; \
    unsigned i, j
-#define ARCFOUR_STEP_1 for (i= SBOX_SIZE; i-- ;) s[i]= (unsigned char)i
+#define ARCFOUR_STEP_1_KEY for (i= SBOX_SIZE; i-- ;) s[i]= (unsigned char)i
 #define ARCFOUR_STEP_2 i= j= 0
-#define ARCFOUR_STEP_3 i= SBOX_MOD(i + 1)
-#define ARCFOUR_STEP_4_SETUP(keyoctet) j= SBOX_MOD(j + s[i] + keyoctet)
-#define ARCFOUR_STEP_4 j= SBOX_MOD(j + s[i])
+#define ARCFOUR_STEP_3_PRNG i= SBOX_MOD(i + 1)
+#define ARCFOUR_STEP_4_KEY(keyoctet) j= SBOX_MOD(j + s[i] + keyoctet)
+#define ARCFOUR_STEP_4_PRNG j= SBOX_MOD(j + s[i])
 #define ARCFOUR_STEP_5_DROP v1= s[i]; s[i]= s[j]; s[j]= v1
-#define ARCFOUR_STEP_5 v1= s[i]; s[i]= v2= s[j]; s[j]= v1
-#define ARCFOUR_STEP_6() s[SBOX_MOD(v1 + v2)]
+#define ARCFOUR_STEP_5_PRNG v1= s[i]; s[i]= v2= s[j]; s[j]= v1
+#define ARCFOUR_STEP_6_PRNG() s[SBOX_MOD(v1 + v2)]
+#define ARCFOUR_STEP_7_KEY i= SBOX_MOD(i + 1)

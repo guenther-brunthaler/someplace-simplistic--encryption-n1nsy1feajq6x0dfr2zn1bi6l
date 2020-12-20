@@ -9,5 +9,6 @@ initial part of the output keystream is dropped) and the
 modifications to the original key setup have no effect because 
 the keys of the test vectors are too short for that.
 
-Format of THIS text: Flowed (space at EOL indicates the next line 
-is a continuation of the current one within the same paragraph.)
+Format of THIS text: Flowed (a space as the last character of a 
+line indicates that the next line is a continuation of the 
+current one within the same paragraph.)

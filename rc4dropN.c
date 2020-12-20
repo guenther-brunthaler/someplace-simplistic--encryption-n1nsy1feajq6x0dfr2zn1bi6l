@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.336.1"
+#define VERSTR_1 "Version 2020.355"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
    }
    if (getchar() != 'K') goto usage;
    /* Prepare key setup. */
-   ARCFOUR_STEP_1;
+   ARCFOUR_STEP_1_KEY;
    ARCFOUR_STEP_2;
    /* Process the fixed-size key. */
    {
@@ -109,24 +109,25 @@ int main(int argc, char **argv) {
          }
          if (++k == key_size) k= 0;
          assert(c >= 0); assert(c < SBOX_SIZE);
-         ARCFOUR_STEP_4_SETUP((unsigned)c);
+         ARCFOUR_STEP_4_KEY((unsigned)c);
          ARCFOUR_STEP_5_DROP;
+         ARCFOUR_STEP_7_KEY;
       }
    }
    /* Finish key setup. */
    ARCFOUR_STEP_2;
    /* Drop the initial pseudorandom output. */
    while (drops--) {
-      ARCFOUR_STEP_3; ARCFOUR_STEP_4; ARCFOUR_STEP_5_DROP;
+      ARCFOUR_STEP_3_PRNG; ARCFOUR_STEP_4_PRNG; ARCFOUR_STEP_5_DROP;
    }
    if (getchar() != 'T') goto usage;
    /* Encrypt or decrypt standard input to standard output. */
    {
       int c;
       while ((c= getchar()) != EOF) {
-         ARCFOUR_STEP_3; ARCFOUR_STEP_4; ARCFOUR_STEP_5;
+         ARCFOUR_STEP_3_PRNG; ARCFOUR_STEP_4_PRNG; ARCFOUR_STEP_5_PRNG;
          assert(c >= 0); assert(c < SBOX_SIZE);
-         c^= ARCFOUR_STEP_6();
+         c^= ARCFOUR_STEP_6_PRNG();
          if (putchar(c) != c) goto wrerr;
       }
    }

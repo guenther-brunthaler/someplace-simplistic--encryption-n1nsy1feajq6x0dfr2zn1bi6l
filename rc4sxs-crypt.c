@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.355.1"
+#define VERSTR_1 "Version 2020.358"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -25,15 +25,15 @@ static char help[]= { /* Formatted as 66 output columns. */
    "\n"
    "Supported options:\n"
    "\n"
-   "-e: Selects encryption mode\n"
-   "-d: Selects decryption mode\n"
+   "-E: Selects raw encryption mode\n"
+   "-D: Selects raw decryption mode\n"
    "-h: Display this help and exit\n"
    "-V: Display version information and exit\n"
    "\n"
    "This program uses ARCFOUR-drop3072 as a CSPRNG (cryptographically\n"
    "secure pseudo-random generator) and takes the next three octets\n"
    "(R0, R1 and R2) of its pseudo-random stream in order to\n"
-   "encrypt/decrypt the next plaintext/ciphertext octet P/C as\n"
+   "raw encrypt/decrypt the next plaintext/ciphertext octet P/C as\n"
    "follows:\n"
    "\n"
    "C = ((P - R2) ^ R1) - R0\n"
@@ -136,8 +136,8 @@ int main(int argc, char **argv) {
          int opt;
          switch (opt= getopt_simplest(&a, &optpos, argc, argv)) {
             case 0: goto no_more_options;
-            case 'e': if (!(encrypt < 0)) goto usage; encrypt= 1; break;
-            case 'd': if (!(encrypt < 0)) goto usage; encrypt= 0; break;
+            case 'E': if (!(encrypt < 0)) goto usage; encrypt= 1; break;
+            case 'D': if (!(encrypt < 0)) goto usage; encrypt= 0; break;
             case 'h':
                if (fputs(help, stdout) < 0) goto wrerr;
                /* Fall through. */
@@ -149,7 +149,9 @@ int main(int argc, char **argv) {
       }
    }
    no_more_options:
-   if (encrypt < 0) { error= "Please specify -e or -d!"; goto fail; }
+   if (encrypt < 0) {
+      (void)fputs("Please specify -E or -D!\n", stderr); goto usage;
+   }
    if (a + 1 != argc) {
       usage:
       (void)fputs(help, stderr);

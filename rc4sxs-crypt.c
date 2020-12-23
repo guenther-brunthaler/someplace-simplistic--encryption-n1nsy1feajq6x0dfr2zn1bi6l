@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.358"
+#define VERSTR_1 "Version 2020.358.1"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -54,9 +54,11 @@ static char help[]= { /* Formatted as 66 output columns. */
    "ignored.\n"
    "\n"
    "Note this program can also used for hashing: Use the data to be\n"
-   "hashed as the binary key and encrypt a string of binary zero\n"
-   "octets (such as drawn from '/dev/zero') with the size of the\n"
-   "desired hash digest. The encrypted output will be the binary hash.\n"
+   "hashed as the binary key and decrypt (decryption is slightly\n"
+   "faster than encryption and actually also encrypts when applied to\n"
+   "unencrypted data) a string of binary zero octets (such as drawn\n"
+   "from '/dev/zero') with the size of the desired hash digest. The\n"
+   "encrypted output will be the binary hash.\n"
    "\n"
    "The program can also derive one-time keys for encryption and MAC\n"
    "of a specific message from a long-term binary key and a binary\n"

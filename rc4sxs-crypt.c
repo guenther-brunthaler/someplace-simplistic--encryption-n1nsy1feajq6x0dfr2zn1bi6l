@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.362"
+#define VERSTR_1 "Version 2020.365"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -155,18 +155,38 @@ static char version_info[]= {
    out= ARCFOUR_STEP_6_PRNG()
 
 int main(int argc, char **argv) {
-   char const *error= 0, *current_file;
-   int a= 0, encrypt= -1;
+   char const *error= 0, *current_file= 0;
+   int encrypt= -1;
    FILE *key;
    ARCFOUR_VARDEFS(static);
    {
-      int optpos= 0;
+      int optpos= 0, a= 0;
       for (;;) {
          int opt;
          switch (opt= getopt_simplest(&a, &optpos, argc, argv)) {
-            case 0: goto no_more_options;
-            case 'E': if (!(encrypt < 0)) goto usage; encrypt= 1; break;
-            case 'D': if (!(encrypt < 0)) goto usage; encrypt= 0; break;
+            case 0:
+               if (a != argc) {
+                  usage:
+                  (void)fputs(help, stderr);
+                  error= version_info; goto fail;
+               }
+               goto no_more_options;
+            case 'E': if (!(encrypt < 0)) goto usage;
+               encrypt= 1;
+               goto get_keyfile;
+            case 'D': if (!(encrypt < 0)) goto usage;
+               encrypt= 0;
+               get_keyfile:
+               if (
+                  !(
+                     current_file= getopt_simplest_mand_arg(
+                        &a, &optpos, argc, argv
+                     )
+                  )
+               ) {
+                  error= "Missing key file pathname!"; goto fail;
+               }
+               break;
             case 'h':
                if (fputs(help, stdout) < 0) goto wrerr;
                /* Fall through. */
@@ -181,12 +201,7 @@ int main(int argc, char **argv) {
    if (encrypt < 0) {
       (void)fputs("Please specify -E or -D!\n", stderr); goto usage;
    }
-   if (a + 1 != argc) {
-      usage:
-      (void)fputs(help, stderr);
-      error= version_info; goto fail;
-   }
-   if (!(key= fopen(current_file= argv[a], "rb"))) {
+   if (!(key= fopen(current_file, "rb"))) {
       (void)fputs("Could not open key file", stderr);
       add_arg:
       (void)fputc(' ', stderr);

@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.365.2"
+#define VERSTR_1 "Version 2020.365.3"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -148,6 +148,7 @@ static char version_info[]= {
 #include <getopt_nh7lll77vb62ycgwzwf30zlln.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 /* 256 bit MACs should be safe enough even against quantum computer attacks. */
@@ -159,6 +160,12 @@ static char version_info[]= {
 #define CSPRNG_GET(out) \
    ARCFOUR_STEP_3_PRNG; ARCFOUR_STEP_4_PRNG; ARCFOUR_STEP_5_PRNG; \
    out= ARCFOUR_STEP_6_PRNG()
+#define DROP_INITIAL_KEYSTREAM() { \
+   unsigned drop; \
+   for (drop= DROP_N; drop--; ) { \
+      ARCFOUR_STEP_3_PRNG; ARCFOUR_STEP_4_PRNG; ARCFOUR_STEP_5_DROP; \
+   } \
+}
 
 int main(int argc, char **argv) {
    char const *error= 0, *current_file, *enc_key_fname= 0, *mac_key_fname= 0;
@@ -168,6 +175,8 @@ int main(int argc, char **argv) {
       ARCFOUR_VARDEFS(static);
    #undef r4
    ARCFOUR_VARDEFS(static);
+   static unsigned char iobuf[BUFSIZ + MAC_OCTETS];
+   size_t prebuffered= 0;
    {
       int optpos= 0, optind= 0;
       for (;;) {
@@ -277,16 +286,18 @@ int main(int argc, char **argv) {
       goto add_arg;
    }
    assert(feof(key));
-   if (fclose(key)) { close_error: error= "Error closing"; goto add_arg; }
-   ARCFOUR_STEP_2;
-   {
-      unsigned drop;
-      for (drop= DROP_N; drop--; ) {
-         #ifndef TESTVECTORS_PEMTFGYBNQJY1ZYR6J7I0HNUH
-         ARCFOUR_STEP_3_PRNG; ARCFOUR_STEP_4_PRNG; ARCFOUR_STEP_5_DROP;
-         #endif
-      }
+   if (fclose(key)) {
+      exotic_error:
+      error=
+         "An unexpected error has occurred!"
+         " This should not normally happen."
+      ;
+      goto fail;
    }
+   ARCFOUR_STEP_2;
+   #ifndef TESTVECTORS_PEMTFGYBNQJY1ZYR6J7I0HNUH
+      DROP_INITIAL_KEYSTREAM();
+   #endif
    if (current_file= mac_key_fname) {
       if (!(key= fopen(current_file, "rb"))) {
          (void)fputs("Could not open MAC key file", stderr);
@@ -305,8 +316,7 @@ int main(int argc, char **argv) {
             }
             if (ferror(key)) goto krderr;
             assert(feof(key));
-            if (fclose(key)) goto close_error;
-            ARCFOUR_STEP_2;
+            if (fclose(key)) goto exotic_error;
          }
       #undef r4
       current_file= 0;
@@ -314,39 +324,135 @@ int main(int argc, char **argv) {
    switch (encrypt) {
       int out;
       case 0: /* Decryption. */
-         while ((out= getchar()) != EOF) {
-            int r;
-            ASSERT_MOD256(out);
-            #ifndef TESTVECTORS_PEMTFGYBNQJY1ZYR6J7I0HNUH
-            CSPRNG_GET(r);
-            ADD_MOD256(out, r);
-            #endif
-            CSPRNG_GET(r);
-            out^= r;
-            #ifndef TESTVECTORS_PEMTFGYBNQJY1ZYR6J7I0HNUH
-            CSPRNG_GET(r);
-            ADD_MOD256(out, r);
-            #endif
-            if (putchar(out) != out) goto wrerr;
+         {
+            int eof;
+            size_t want, got;
+            unsigned i, stop;
+            if (
+               setvbuf(stdin, 0, _IONBF, 0) || setvbuf(stdout, 0, _IONBF, 0)
+            ) {
+               goto exotic_error;
+            }
+            for (;;) {
+               got= fread(
+                     iobuf + prebuffered, sizeof *iobuf
+                  ,  want= DIM(iobuf) - prebuffered
+                  ,  stdin
+               );
+               if ((eof= got != want) && ferror(stdin)) goto rderr;
+               assert(got <= want);
+               got+= prebuffered;
+               if (mac_key_fname) {
+                  if (got == MAC_OCTETS) {
+                     assert(got < want);
+                     break;
+                  }
+                  assert(got > MAC_OCTETS);
+                  want= got - (prebuffered= MAC_OCTETS);
+               } else {
+                  assert(prebuffered == 0);
+                  want= got;
+               }
+               stop= (unsigned)want;
+               assert(stop == want);
+               for (i= 0; i < stop; ++i) {
+                  int r;
+                  out= (int)(unsigned)iobuf[i];
+                  ASSERT_MOD256(out);
+                  if (mac_key_fname) {
+                     #define r4 mac
+                        ARCFOUR_STEP_4_KEY((unsigned)out);
+                        ARCFOUR_STEP_5_DROP; ARCFOUR_STEP_7_KEY;
+                     #undef r4
+                  }
+                  #ifndef TESTVECTORS_PEMTFGYBNQJY1ZYR6J7I0HNUH
+                  CSPRNG_GET(r);
+                  ADD_MOD256(out, r);
+                  #endif
+                  CSPRNG_GET(r);
+                  out^= r;
+                  #ifndef TESTVECTORS_PEMTFGYBNQJY1ZYR6J7I0HNUH
+                  CSPRNG_GET(r);
+                  ADD_MOD256(out, r);
+                  #endif
+                  ASSERT_MOD256(out);
+                  iobuf[i]= (unsigned char)(unsigned)out;
+               }
+               if (stop) {
+                  got= fwrite(iobuf, sizeof *iobuf, want, stdout);
+                  if (got != want) goto wrerr;
+               }
+               (void)memmove(iobuf, iobuf + want, prebuffered);
+               if (eof) break;
+            }
+            if (mac_key_fname) {
+               if (prebuffered != MAC_OCTETS) {
+                  assert(prebuffered < MAC_OCTETS);
+                  error= "Missing MAC at end of input stream!"; goto fail;
+               }
+               #define r4 mac
+                  ARCFOUR_STEP_2;
+                  DROP_INITIAL_KEYSTREAM();
+                  for (i= 0; i < MAC_OCTETS; ++i) {
+                     int r;
+                     CSPRNG_GET(out);
+                     CSPRNG_GET(r);
+                     out^= r;
+                     CSPRNG_GET(r);
+                     ADD_MOD256(out, r);
+                     ASSERT_MOD256(out);
+                     if (iobuf[i] != (unsigned)out) {
+                        error= "MAC mismatch! Message has been corrupted.";
+                        goto fail;
+                     }
+                  }
+               #undef r4
+            }
          }
          break;
       default: /* Encryption. */
          assert(encrypt == 1);
          while ((out= getchar()) != EOF) {
-            int r0, r1, r2;
+            {
+               int r0, r1, r2;
+               ASSERT_MOD256(out);
+               CSPRNG_GET(r0);
+               CSPRNG_GET(r1);
+               CSPRNG_GET(r2);
+               SUB_MOD256(out, r2);
+               out^= r1;
+               SUB_MOD256(out, r0);
+            }
             ASSERT_MOD256(out);
-            CSPRNG_GET(r0);
-            CSPRNG_GET(r1);
-            CSPRNG_GET(r2);
-            SUB_MOD256(out, r2);
-            out^= r1;
-            SUB_MOD256(out, r0);
             if (putchar(out) != out) goto wrerr;
+            #define r4 mac
+               ARCFOUR_STEP_4_KEY((unsigned)out);
+               ARCFOUR_STEP_5_DROP; ARCFOUR_STEP_7_KEY;
+            #undef r4
          }
          break;
    }
    if (ferror(stdin)) goto rderr;
    assert(feof(stdin));
+   if (encrypt == 1 && mac_key_fname) {
+      #define r4 mac
+         ARCFOUR_STEP_2;
+         DROP_INITIAL_KEYSTREAM();
+         {
+            unsigned mac_cnt;
+            for (mac_cnt= MAC_OCTETS; mac_cnt--; ) {
+               int out, r;
+               CSPRNG_GET(out);
+               CSPRNG_GET(r);
+               out^= r;
+               CSPRNG_GET(r);
+               ADD_MOD256(out, r);
+               ASSERT_MOD256(out);
+               if (putchar(out) != out) goto wrerr;
+            }
+         }
+      #undef r4
+   }
    cleanup:
    if (fflush(0)) {
       wrerr: error= "Error writing to standard output!";

@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.365"
+#define VERSTR_1 "Version 2020.365.1"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -139,7 +139,10 @@ static char version_info[]= {
    "Distribution is permitted under the terms of the GPLv3."
 };
 
+/* Feature test macro needed for glibc on 32-bit platforms supporting files
+ * larger than 2 GiB. Very annoying that this is not the default. */
 #define _FILE_OFFSET_BITS 64
+
 #include "arc4_common.h"
 #include <dim_sdbrke8ae851uitgzm4nv3ea2.h>
 #include <getopt_nh7lll77vb62ycgwzwf30zlln.h>
@@ -155,36 +158,50 @@ static char version_info[]= {
    out= ARCFOUR_STEP_6_PRNG()
 
 int main(int argc, char **argv) {
-   char const *error= 0, *current_file= 0;
+   char const *error= 0, *current_file, *enc_key_fname= 0, *mac_key_fname= 0;
    int encrypt= -1;
    FILE *key;
    ARCFOUR_VARDEFS(static);
    {
-      int optpos= 0, a= 0;
+      int optpos= 0, optind= 0;
       for (;;) {
          int opt;
-         switch (opt= getopt_simplest(&a, &optpos, argc, argv)) {
+         switch (opt= getopt_simplest(&optind, &optpos, argc, argv)) {
             case 0:
-               if (a != argc) {
-                  usage:
-                  (void)fputs(help, stderr);
-                  error= version_info; goto fail;
+               if (optind != argc) {
+                  error= "Too many arguments!"; goto fail;
                }
                goto no_more_options;
-            case 'E': if (!(encrypt < 0)) goto usage;
+            case 'E':
+               if (!(encrypt < 0)) {
+                  E_xor_D:
+                  error= "-E and -D are mutually exclusive!"; goto fail;
+               }
                encrypt= 1;
-               goto get_keyfile;
-            case 'D': if (!(encrypt < 0)) goto usage;
+               goto get_enc_kfile;
+            case 'D':
+               if (!(encrypt < 0)) goto E_xor_D;
                encrypt= 0;
-               get_keyfile:
+               get_enc_kfile:
                if (
                   !(
-                     current_file= getopt_simplest_mand_arg(
-                        &a, &optpos, argc, argv
+                     enc_key_fname= getopt_simplest_mand_arg(
+                        &optind, &optpos, argc, argv
                      )
                   )
                ) {
-                  error= "Missing key file pathname!"; goto fail;
+                  error= "Missing enryption key file pathname!"; goto fail;
+               }
+               break;
+            case 'M':
+               if (
+                  !(
+                     mac_key_fname= getopt_simplest_mand_arg(
+                        &optind, &optpos, argc, argv
+                     )
+                  )
+               ) {
+                  error= "Missing MAC key file pathname!"; goto fail;
                }
                break;
             case 'h':
@@ -199,9 +216,9 @@ int main(int argc, char **argv) {
    }
    no_more_options:
    if (encrypt < 0) {
-      (void)fputs("Please specify -E or -D!\n", stderr); goto usage;
+      error= "Please specify -E or -D!"; goto fail;
    }
-   if (!(key= fopen(current_file, "rb"))) {
+   if (!(key= fopen(current_file= enc_key_fname, "rb"))) {
       (void)fputs("Could not open key file", stderr);
       add_arg:
       (void)fputc(' ', stderr);
@@ -266,19 +283,6 @@ int main(int argc, char **argv) {
    }
    switch (encrypt) {
       int out;
-      case 1: /* Encryption. */
-         while ((out= getchar()) != EOF) {
-            int r0, r1, r2;
-            ASSERT_MOD256(out);
-            CSPRNG_GET(r0);
-            CSPRNG_GET(r1);
-            CSPRNG_GET(r2);
-            SUB_MOD256(out, r2);
-            out^= r1;
-            SUB_MOD256(out, r0);
-            if (putchar(out) != out) goto wrerr;
-         }
-         break;
       case 0: /* Decryption. */
          while ((out= getchar()) != EOF) {
             int r;
@@ -296,7 +300,20 @@ int main(int argc, char **argv) {
             if (putchar(out) != out) goto wrerr;
          }
          break;
-      default: goto usage;
+      default: /* Encryption. */
+         assert(encrypt == 1);
+         while ((out= getchar()) != EOF) {
+            int r0, r1, r2;
+            ASSERT_MOD256(out);
+            CSPRNG_GET(r0);
+            CSPRNG_GET(r1);
+            CSPRNG_GET(r2);
+            SUB_MOD256(out, r2);
+            out^= r1;
+            SUB_MOD256(out, r0);
+            if (putchar(out) != out) goto wrerr;
+         }
+         break;
    }
    if (ferror(stdin)) goto rderr;
    assert(feof(stdin));
@@ -305,7 +322,7 @@ int main(int argc, char **argv) {
       wrerr: error= "Error writing to standard output!";
       fail:
       (void)fputs(error, stderr);
-      (void)fputc('\n', stderr);
+      (void)fputs("\n" "Use option -h for displaying help.\n", stderr);
    }
    leave:
    return error ? EXIT_FAILURE : EXIT_SUCCESS;

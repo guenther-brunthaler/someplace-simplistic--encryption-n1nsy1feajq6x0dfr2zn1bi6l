@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.365.1"
+#define VERSTR_1 "Version 2020.365.2"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -150,6 +150,9 @@ static char version_info[]= {
 #include <stdio.h>
 #include <assert.h>
 
+/* 256 bit MACs should be safe enough even against quantum computer attacks. */
+#define MAC_OCTETS 32
+
 #define ADD_MOD256(v, inc) ((v)= (v) + (inc) & 256 - 1)
 #define SUB_MOD256(v, dec) ADD_MOD256(v, 256 - (dec))
 #define ASSERT_MOD256(c) assert((c) >= 0); assert((c) < 256)
@@ -161,6 +164,9 @@ int main(int argc, char **argv) {
    char const *error= 0, *current_file, *enc_key_fname= 0, *mac_key_fname= 0;
    int encrypt= -1;
    FILE *key;
+   #define r4 mac
+      ARCFOUR_VARDEFS(static);
+   #undef r4
    ARCFOUR_VARDEFS(static);
    {
       int optpos= 0, optind= 0;
@@ -264,14 +270,14 @@ int main(int argc, char **argv) {
       #endif
    }
    if (ferror(key)) {
+      krderr:
       (void)fclose(key);
       rderr:
       (void)fputs("Error reading from", stderr);
       goto add_arg;
    }
    assert(feof(key));
-   if (fclose(key)) { error= "Error closing"; goto add_arg; }
-   current_file= 0;
+   if (fclose(key)) { close_error: error= "Error closing"; goto add_arg; }
    ARCFOUR_STEP_2;
    {
       unsigned drop;
@@ -280,6 +286,30 @@ int main(int argc, char **argv) {
          ARCFOUR_STEP_3_PRNG; ARCFOUR_STEP_4_PRNG; ARCFOUR_STEP_5_DROP;
          #endif
       }
+   }
+   if (current_file= mac_key_fname) {
+      if (!(key= fopen(current_file, "rb"))) {
+         (void)fputs("Could not open MAC key file", stderr);
+         goto add_arg;
+      }
+      #define r4 mac
+         {
+            ARCFOUR_STEP_1_KEY; ARCFOUR_STEP_2;
+            {
+               int c;
+               while ((c= getc(key)) != EOF) {
+                  ASSERT_MOD256(c);
+                  ARCFOUR_STEP_4_KEY((unsigned)c);
+                  ARCFOUR_STEP_5_DROP; ARCFOUR_STEP_7_KEY;
+               }
+            }
+            if (ferror(key)) goto krderr;
+            assert(feof(key));
+            if (fclose(key)) goto close_error;
+            ARCFOUR_STEP_2;
+         }
+      #undef r4
+      current_file= 0;
    }
    switch (encrypt) {
       int out;

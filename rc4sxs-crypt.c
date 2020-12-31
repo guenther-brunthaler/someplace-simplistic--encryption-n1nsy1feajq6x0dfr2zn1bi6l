@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.366"
+#define VERSTR_1 "Version 2020.366.1"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -150,6 +150,15 @@ static char version_info[]= {
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+
+#if defined __GNU_LIBRARY__ && __GNU_LIBRARY__ >= 6
+   /* Another annoying GNUism for speeding up lame standard I/O functions. */
+   #define getchar getchar_unlocked
+   #define getc getc_unlocked
+   #define putchar putchar_unlocked
+   #define fwrite fwrite_unlocked
+   #define fread fread_unlocked
+#endif
 
 /* 256 bit MACs should be safe enough even against quantum computer attacks. */
 #define MAC_OCTETS 32

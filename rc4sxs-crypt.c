@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2020.365.3"
+#define VERSTR_1 "Version 2020.366"
 #define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -325,33 +325,36 @@ int main(int argc, char **argv) {
       int out;
       case 0: /* Decryption. */
          {
-            int eof;
-            size_t want, got;
-            unsigned i, stop;
+            unsigned i;
             if (
                setvbuf(stdin, 0, _IONBF, 0) || setvbuf(stdout, 0, _IONBF, 0)
             ) {
                goto exotic_error;
             }
             for (;;) {
-               got= fread(
-                     iobuf + prebuffered, sizeof *iobuf
-                  ,  want= DIM(iobuf) - prebuffered
-                  ,  stdin
-               );
-               if ((eof= got != want) && ferror(stdin)) goto rderr;
-               assert(got <= want);
-               got+= prebuffered;
-               if (mac_key_fname) {
-                  if (got == MAC_OCTETS) {
-                     assert(got < want);
-                     break;
+               int eof;
+               unsigned stop;
+               size_t want;
+               {
+                  size_t got= fread(
+                        iobuf + prebuffered, sizeof *iobuf
+                     ,  want= DIM(iobuf) - prebuffered
+                     ,  stdin
+                  );
+                  if ((eof= got != want) && ferror(stdin)) goto rderr;
+                  assert(got <= want);
+                  got+= prebuffered;
+                  if (mac_key_fname) {
+                     if (got == MAC_OCTETS) {
+                        assert(got < want);
+                        break;
+                     }
+                     assert(got > MAC_OCTETS);
+                     want= got - (prebuffered= MAC_OCTETS);
+                  } else {
+                     assert(prebuffered == 0);
+                     want= got;
                   }
-                  assert(got > MAC_OCTETS);
-                  want= got - (prebuffered= MAC_OCTETS);
-               } else {
-                  assert(prebuffered == 0);
-                  want= got;
                }
                stop= (unsigned)want;
                assert(stop == want);
@@ -379,8 +382,9 @@ int main(int argc, char **argv) {
                   iobuf[i]= (unsigned char)(unsigned)out;
                }
                if (stop) {
-                  got= fwrite(iobuf, sizeof *iobuf, want, stdout);
-                  if (got != want) goto wrerr;
+                  if (fwrite(iobuf, sizeof *iobuf, want, stdout) != want) {
+                     goto wrerr;
+                  }
                }
                (void)memmove(iobuf, iobuf + want, prebuffered);
                if (eof) break;

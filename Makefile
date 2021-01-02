@@ -1,5 +1,5 @@
 .POSIX:
-# v2020.324
+# v2021.2
 
 # Preset portable default build options. Override by either assigning some of
 # those directly as part of the "make" command-line arguments. Or export
@@ -10,7 +10,6 @@ LDFLAGS = -s
 
 OBJECTS = $(SOURCES:.c=.o)
 TARGETS = $(OBJECTS:.o=)
-DOCS = README.html
 LIBS = $(LIB_1_SUBDIR)/lib$(LIB_1_SUBDIR).a
 
 LIB_1_SUBDIR =  fragments
@@ -24,12 +23,10 @@ all: $(TARGETS)
 
 clean:
 	-cd $(LIB_1_SUBDIR) && $(MAKE) clean
-	-rm $(TARGETS) $(OBJECTS) $(DOCS)
+	-rm $(TARGETS) $(OBJECTS) $(LOCAL_GENERATED)
 
-doc: $(DOCS)
-
-$(DOCS): $(DOCS:.html=.adoc)
-	asciidoc $?
+# Specific rules for the local project. Empty file if none needed.
+include local.mk
 
 COMBINED_CFLAGS= $(CPPFLAGS) $(CFLAGS)
 AUG_CFLAGS = \

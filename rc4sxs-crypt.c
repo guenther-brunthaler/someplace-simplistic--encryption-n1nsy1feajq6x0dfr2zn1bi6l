@@ -1,5 +1,5 @@
-#define VERSTR_1 "Version 2020.366.2"
-#define VERSTR_2 "Copyright (c) 2020 Guenther Brunthaler."
+#define VERSTR_1 "Version 2021.2"
+#define VERSTR_2 "Copyright (c) 2020-2021 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
    "rc4sxs-crypt - modified ARCFOUR using SUBTRACT-XOR-SUBTRACT\n"
@@ -139,10 +139,7 @@ static char version_info[]= {
    "Distribution is permitted under the terms of the GPLv3."
 };
 
-/* Feature test macro needed for glibc on 32-bit platforms supporting files
- * larger than 2 GiB. Very annoying that this is not the default. */
-#define _FILE_OFFSET_BITS 64
-
+#include "config.h"
 #include "arc4_common.h"
 #include <dim_sdbrke8ae851uitgzm4nv3ea2.h>
 #include <getopt_nh7lll77vb62ycgwzwf30zlln.h>

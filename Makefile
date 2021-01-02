@@ -1,5 +1,5 @@
 .POSIX:
-# v2021.2
+# v2021.2.1
 
 # Preset portable default build options. Override by either assigning some of
 # those directly as part of the "make" command-line arguments. Or export
@@ -25,7 +25,7 @@ clean:
 	-cd $(LIB_1_SUBDIR) && $(MAKE) clean
 	-rm $(TARGETS) $(OBJECTS) $(LOCAL_GENERATED)
 
-# Specific rules for the local project. Empty file if none needed.
+# Empty or specific rules for local project. May define $(LOCAL_GENERATED).
 include local.mk
 
 COMBINED_CFLAGS= $(CPPFLAGS) $(CFLAGS)

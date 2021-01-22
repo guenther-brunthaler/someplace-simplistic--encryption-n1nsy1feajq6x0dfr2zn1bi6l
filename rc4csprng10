@@ -1,9 +1,9 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2020.347
+Version 2021.22
 
-Copyright (c) 2020 Guenther Brunthaler. All rights reserved.
+Copyright (c) 2020-2021 Guenther Brunthaler. All rights reserved.
 
 This script is free software.
 Distribution is permitted under the terms of the GPLv3.
@@ -18,28 +18,36 @@ octets)|
 |
 Usage: $APP [ <options> ] [ -- ] < <input_stream>|
 |
-$APP reads ASCII words (separated by whitespace) from standard input and |
-interprets them according to one of the following expected two formats:|
+$APP reads ASCII words (separated by whitespace, including newline sequences) |
+from standard input and interprets them according to one of the following |
+format:|
 |
-<key> [ D <drop> ] G <count>|
-|
-<key> [ D <drop> ] [ P <passthrough_count> ] [ R <random_count> ] T <data>|
+<key> [ D <drop> ] [ G <count> ]|
+[ P <passthrough_count> ] [ R <random_count> ] T <data>|
 |
 where|
 |
 "[ ... ]" means that "..." is optional any may be omitted|
 |
-"D", "G", etc.: those literal one-character words represent themselves|
+"P", "R", etc.: those literal one-character words represent themselves|
 |
 <key>: An arbitrary number of decimal numbers which will be interpreted as |
-the octet values of the encryption key octets.|
+the octet values of ARCFOUR encryption key octets. If the generated |
+pseudorandom numbers shall be used for encryption/decryption, the key must be |
+binary data with no detectable patterns or regularities, and especially not |
+text. When the generated pseudo-random numbers are intended to be used as a |
+hash value, however, then these restrictions do not apply and <key> can be |
+anything, including text.|
 |
-D <drop>: The count of initial generated pseudorandom numbers which will not |
+D <drop>: The count of initial generated pseudorandom values which will not |
 be output but rather be discarded silently. Defaults to 0 if omitted. By |
 specifying "D 3072" (recommended for enhanced security), $APP is effectively |
 changed into ARCFOUR-drop3072.|
 |
-G <count>: Emit <count> pseudorandom numbers at this point|
+G <count>: Output <count> pseudorandom values at this point, i. e. before |
+starting to process the <data> stream. This is typically used to output the |
+hash digest. But it can also be used to provide key material to follow-up |
+processors, which shall precede the interleaved output <data> (see below).|
 |
 P <passthrough_count>: Determines the number of <data> values which will be |
 copied through to the output before inserting <random_count> pseudorandom |
@@ -55,7 +63,7 @@ decrypted.|
 |
 All "<...>" items explained above must be unsigned decimal integer numbers in |
 ASCII encoding.|
-|
+ |
 The output of $APP will also be ASCII decimal number with 20 numbers per line |
 (except for the last line which might be shorter).|
 |
@@ -73,8 +81,8 @@ been processed. Neither will it ignore the rest of the key as the original |
 key setup would do.|
 |
 |
-Keystream mode|
---------------|
+Keystream generation|
+--------------------|
 |
 Use the "G" token in order to generate deterministic pseudorandom numbers |
 from the key. This can be used for the following:|
@@ -89,7 +97,7 @@ from the key. This can be used for the following:|
 |
 * password-based key derivation (PBKDF)|
 |
-* hashing (cryptographically non-secure, though)|
+* hashing (no gurantees about any cryptographic security, though)|
 |
 |
 Encryption/Decryption preparation|
@@ -97,14 +105,11 @@ Encryption/Decryption preparation|
 |
 Although $APP by itself does not encrypt or decrypt data, it can prepare it |
 for encryption or decryption by interleaving the input data with pseudorandom |
-values.|
+values and optionally precede that with pseudorandom key material.|
 |
 Other utilities can then combine the data and the pseudorandom values to |
 actually encrypt/decrypt the data, such as by bitwise combining them with |
 XOR.|
-|
-This mode of operation is automatically enabled when the "G" token is not |
-present in the input.|
 |
 By default, the output then consists of the next <data> value followed by the |
 next pseudoramdom value. This repeats until <data> is exhausted.|

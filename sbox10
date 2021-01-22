@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2021.22.1
+Version 2021.22.2
 
 Copyright (c) 2021 Guenther Brunthaler. All rights reserved.
 
@@ -17,6 +17,16 @@ every step|
 |
 Usage: $APP [ <options> ] [ -- ] < <input_stream>|
 |
+$APP is an alternative "mode of operation" for stream ciphers which normally |
+use bitwise XOR in order to combine the data to be encrypted or decrypted |
+with the output of a cryptographically secure pseudo-random number generator. |
+The latter approach is fast but poses many security challenges, in particular |
+bit-flipping attacks and the danger of OTP recovery in case of repeated usage |
+of the same key.|
+|
+An s-box transformation as provided by this utility avoids some of those |
+shortcomings, and is therefore more secure.|
+|
 $APP reads ASCII words (separated by whitespace, including newline sequences) |
 from standard input and interprets them according to one of the following |
 format:|
@@ -31,18 +41,18 @@ Initially, the s-box (which is a array with 256 entries and its first index |
 is 0) is set to the identity permutation, i. e. contains the values 0 through |
 255. After that, all 256 values of <key256> are used to swap two s-box |
 entries: The entry with index <i> and the entry with the index equal to the |
-<i>th value of <key256>, where <i> runs from 0 through 255.|
+<i>th value of <key256>, where <i> runs from 0 through 255 (in that order).|
 |
 <pairs>: Transform (or inversely transform, selected by command line option) |
-all following input data, interpreting it as an arbitrary number of pairs of |
-decimal values. The first value in every pair is a value to be transformed |
-(back), and the second value must have been created by a cryptographic |
-pseudo-random generator. The tranformation consists of emitting the current |
-s-box value indexed by the first value. After this, the s-box entry just |
-output is swapped with the s-box entry indexed by the second value of the |
-pair. The inverse transformation does the opposite of these steps. This |
-process continues until all pairs have been transformed or been transformed |
-back, which stops at the end of the input data stream.|
+all following input data, interpreting it as an arbitrary number of decimal |
+value pairs. The first value of every pair is a value to be transformed |
+(back), and the second value must have been created by a cryptographically |
+secure pseudo-random number generator. The tranformation consists of emitting |
+the current s-box value indexed by the first value. After this, the s-box |
+entry just output is swapped with the s-box entry indexed by the second value |
+of the pair. The inverse transformation does the opposite of these steps. |
+This process continues until all pairs have been transformed or been |
+transformed back, which stops at the end of the input data stream.|
 |
 |
 All "<...>" items explained above must be unsigned decimal integer numbers in |

@@ -143,11 +143,9 @@ BEGIN {
 	}
 }
 
-function encrypt(r    , c, rr, t) {
-	c= rs[si]; rr= rs[r]
-	t= s[c]; s[c]= s[r]; s[r]= t
-	t= rs[rr]; rs[rr]= rs[si]; rs[si]= t
-	si= -1; return c
+function encrypt(r    , c, t) {
+	t= s[c= rs[si]]; s[c]= s[r]; s[r]= t
+	rs[si]= r; si= -1; return rs[r]= c
 }
 
 function decrypt(r    , p) {

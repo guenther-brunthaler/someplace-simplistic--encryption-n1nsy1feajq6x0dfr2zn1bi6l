@@ -23,9 +23,9 @@ all: $(TARGETS)
 
 clean:
 	-cd $(LIB_1_SUBDIR) && $(MAKE) clean
-	-rm $(TARGETS) $(OBJECTS) $(LOCAL_GENERATED)
+	-rm $(TARGETS) $(OBJECTS) $(LOCALLY_GENERATED)
 
-# Empty or specific rules for local project. May define $(LOCAL_GENERATED).
+# Empty or specific rules for local project. May define $(LOCALLY_GENERATED).
 include local.mk
 
 COMBINED_CFLAGS= $(CPPFLAGS) $(CFLAGS)

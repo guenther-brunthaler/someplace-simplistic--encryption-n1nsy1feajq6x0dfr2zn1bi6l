@@ -1,4 +1,4 @@
-LOCAL_GENERATED = $(DOCS) config.h
+LOCALLY_GENERATED = $(DOCS) config.h
 
 DOCS = README.html
 

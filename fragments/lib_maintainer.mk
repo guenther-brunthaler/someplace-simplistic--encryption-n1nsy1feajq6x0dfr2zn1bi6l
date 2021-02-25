@@ -1,4 +1,4 @@
-# v2020.329
+# v2021.56
 #
 # This makefile snippet includes additional rules which are only required by
 # the maintainer of the application, and are of no interest to a user who just
@@ -37,6 +37,8 @@ depend_helper:
 		} \
 	' "$$T2" | LC_COLLATE=C sort > $(outfile)
 
-depend: clean scan
+depend: clean
+	test "$(LOCALLY_GENERATED)" && $(MAKE) $(LOCALLY_GENERATED)
+	$(MAKE) scan
 	outfile=dependencies.mk; > $$outfile; \
 	$(MAKE) outfile="$$outfile" depend_helper

@@ -1,4 +1,4 @@
-#define VERSTR "Version 2021.56"
+#define VERSTR "Version 2021.57"
 #define COPYRIGHT_NOTICE "Copyright (c) 2021 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -166,9 +166,11 @@ int main(int argc, char **argv) {
             assert(left >= 1);
             /* XOR current buffer segment with encrypted last block.
              * Then replace the block contents with the updated segment. */
-            while (left--) {
-               block[base]= buffer[base]^= block[base];
-               ++base;
+            {
+               unsigned i;
+               for (i= 0; left--; ++i) {
+                  block[i]= buffer[base++]^= block[i];
+               }
             }
             if (base != bytes_read) {
                assert(base < bytes_read);

@@ -1,10 +1,10 @@
 Manual Random Generation Methods
 ================================
 Guenther Brunthaler
-v2021.288
+v2021.288.1
 
-This guide explores several methods for "manually" creating good random number 
-for nonce creation when no built-in true-random number generators are 
+This guide explores several methods for "manually" creating good random 
+numbers for nonce creation when no built-in true-random number generators are 
 available, or if they could not be seeded with enough entropy.
 
 
@@ -18,7 +18,7 @@ might not be as good as expected due to manufacturing imprecisions.
 Write all the numbers rolled down in any order, then hash the result into a 
 256 bit "random" number.
 
-This assumes the usual 6-sided dies.
+This assumes the usual 6-sided dice.
 
 As an alternative to writing down the results of the dice rolls, it is also 
 possible to take a digital photo of the result, or a digital video of throwing 
@@ -30,10 +30,10 @@ actually write down the results, but the contents of the file can be hashed
 into as many hash output bits as there are known entropy bits in the file.
 
 For instance, shoot a video where the watcher can see 10 dice thrown 10 times 
-and also the results of those throws. Then this video file contains the same 
-information as 100 dice throws, which is log2(6 ** 100) = 258 bits. As this is 
-more than 256 bits, the file may be hashed (e.g. using SHA2-256) into 256 
-output bits, yielding 32 full-entropy true-random octets.
+and also the results of those throws. Then this video file contains at least 
+the same amount of information as 100 dice throws, which is log2(6 ** 100) = 
+258 bits. As this is more than 256 bits, the file may be hashed (e.g. using 
+SHA2-256) into 256 output bits, yielding 32 full-entropy true-random octets.
 
 
 Marbles
@@ -127,13 +127,47 @@ $ /usr/sbin/haveged -f - -n 32 2> /dev/null | openssl base64 | tr -d =
 will harvest 256 bits of entropy using the HAVEGE algorithm and then display 
 it as a truly random password.
 
-If a hardware random number generator is available as /dev/hwrng, its output
-can also be mixed to the output of HAVEGE (e.g. by concatenating and hashing
+
+Hardware RNG
+------------
+
+If a hardware random number generator is available as /dev/hwrng, its output 
+can also be mixed to the output of HAVEGE (e.g. by concatenating and hashing 
 the outputs of both entropy sources) just in case haveged might have some 
-implementation flaws which makes its output less random than anticipated.
+implementation flaws which makes its output less random than advertised.
 
 For instance, when generating 32 bytes with haveged and also reading 32 bytes 
 from /dev/hwrng, then this will at least contain 32 bytes of randomness even 
 if one of both entropy sources should turn out to not really be random at all. 
 When concatenating and hashing those 64 bytes with SHA2-256 into 32 bytes, 
 those will then combine the entropy of both sources.
+
+
+urandom
+-------
+
+Although this is strictly speaking exactly the opposite of "manually" 
+generating random numbers, it will not hurt to extract 32 octets from 
+/dev/urandom also and mix it (via hashing) to the harvested random octets 
+already obtained by one of the other methods described above.
+
+Even though there are no entropy guaranteed for /dev/urandom, under normal 
+conditions there might still be some amount of entropy present in the output, 
+and so it won't hurt mixing it in.
+
+
+random
+------
+
+Until some point in 2020, the Linux kernel used /dev/random to generate 
+reliably random numbers with full entropy.
+
+Unfortunately, those times are gone. Nowadays, /dev/random is pretty much the 
+same as /dev/urandom, which means there is no guarantee that those devices 
+produce any random numbers at all. It is quite possible that completely 
+determined pseudo-random numbers will be returned instead.
+
+In other words, there is no point in using /dev/random at all any more.
+
+Use dev/urandom but be aware that the bytes read from there might not be 
+/random at all.

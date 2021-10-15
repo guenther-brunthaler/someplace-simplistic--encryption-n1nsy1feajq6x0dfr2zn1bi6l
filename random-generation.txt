@@ -1,0 +1,139 @@
+Manual Random Generation Methods
+================================
+Guenther Brunthaler
+v2021.288
+
+This guide explores several methods for "manually" creating good random number 
+for nonce creation when no built-in true-random number generators are 
+available, or if they could not be seeded with enough entropy.
+
+
+The classic: Roll dice
+----------------------
+
+100 dice rolls are necessary to provide 256 bit of high-quality random 
+information. Better make it 30 % more rolls, because the quality of the dice 
+might not be as good as expected due to manufacturing imprecisions.
+
+Write all the numbers rolled down in any order, then hash the result into a 
+256 bit "random" number.
+
+This assumes the usual 6-sided dies.
+
+As an alternative to writing down the results of the dice rolls, it is also 
+possible to take a digital photo of the result, or a digital video of throwing 
+the dice more than once. Assuming the events which can be seen in the picture 
+or video file would allow a human watcher to still write down the results of 
+the dice rolls, then this information must be present in the file and thus 
+also the associated amount of entropy. It is therefore not necessary to 
+actually write down the results, but the contents of the file can be hashed 
+into as many hash output bits as there are known entropy bits in the file.
+
+For instance, shoot a video where the watcher can see 10 dice thrown 10 times 
+and also the results of those throws. Then this video file contains the same 
+information as 100 dice throws, which is log2(6 ** 100) = 258 bits. As this is 
+more than 256 bits, the file may be hashed (e.g. using SHA2-256) into 256 
+output bits, yielding 32 full-entropy true-random octets.
+
+
+Marbles
+-------
+
+Put N marbles of the same size and weight into a box. The same marbles must 
+also belong to K groups of distinctly recognizable features, such as K 
+different colors.
+
+Then shake the box and let the marbles settle towards one of the corners 
+alongside one of the edges of the box.
+
+This will then represent a permutation of N objects of K types, and the log2 
+of the number of possible such permutations will represent the amount of 
+entropy represented.
+
+As explained for the dice, take a digital picture or video of such shakings, 
+and hash the file into the hash with at most as many bits as represented by 
+the entropy calculated in the previous paragraph.
+
+
+Lava lamp
+---------
+
+Create a video of a lava lamp in action. Alternatively, shoot a large number 
+of still photographs of the process.
+
+Transfer the files containing the imagery to the computer and hash them 
+all together into a 256-bit hash value.
+
+Instead of a lava lamp, every scene with a certain minimum amount of 
+non-predictability can be filmed/photographed instead.
+
+Audio recordings can also be used.
+
+But beware of source material with a high degree of repeating cycles, or being 
+overly influenced by something very periodical.
+
+
+System entropy
+--------------
+
+Hash the contents of /sys, /proc, frequently-changing files on disk etc. This 
+might not be a good random source for continous ramdom generation, but it 
+might be enough for a single nonce.
+
+But beware of systems which are read-only or write-once, such as an initramfs.
+
+Network activity might also be a good source of entropy, but care must be 
+taken that an attacker does not have access to the same source.
+
+
+Externally injected entropy
+---------------------------
+
+If a system with low entropy generation capabilities can be reached securely 
+via remote shell access, entropy can be generated on the local system and then 
+transferred to the target system via the secure connection.
+
+Of course, establishing a secure connection to such a system might be a 
+challenge of its own.
+
+
+Graphical Methods
+-----------------
+
+This requires a graphical application which represents objects as pixels.
+
+Each object remembers its initial co-ordinates and can be moved by the user.
+
+The objects change their color based on the distance from other objects that 
+were close at the original board position. The user shall try to make all 
+objects the same or a similar color.
+
+For instance, the color might be the average distance of the original as well
+as the current locations of all the other objects, or some other function of 
+both parameters.
+
+
+HAVEGE
+------
+
+The "haveged" package can be installed in order to collect entropy from the 
+running system.
+
+However, the haveged executable can also be run directly - that is, on demand 
+- for harvesting entropy. For instance,
+
+$ /usr/sbin/haveged -f - -n 32 2> /dev/null | openssl base64 | tr -d =
+
+will harvest 256 bits of entropy using the HAVEGE algorithm and then display 
+it as a truly random password.
+
+If a hardware random number generator is available as /dev/hwrng, its output
+can also be mixed to the output of HAVEGE (e.g. by concatenating and hashing
+the outputs of both entropy sources) just in case haveged might have some 
+implementation flaws which makes its output less random than anticipated.
+
+For instance, when generating 32 bytes with haveged and also reading 32 bytes 
+from /dev/hwrng, then this will at least contain 32 bytes of randomness even 
+if one of both entropy sources should turn out to not really be random at all. 
+When concatenating and hashing those 64 bytes with SHA2-256 into 32 bytes, 
+those will then combine the entropy of both sources.

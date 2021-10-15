@@ -1,0 +1,67 @@
+Nonce Generation
+================
+v2021.288
+
+Many cryptographic algorithms require a nonce. Normally, random numbers are 
+used as nonces.
+
+But it is hard to guarantee the actual randomness of so-called random numbers.
+
+In low-entropy situations, it might be easier to use a counter rather than a 
+random number as the nonce.
+
+Let's say we want a 256-bit nonce, i.e. 32 octets.
+
+We define a counter starting value and then increment that counter for every 
+new nonce to be generated.
+
+The starting value should be as random as possible in order to make it 
+extremely unlikely someone else will ever generate the same nonce by accident.
+
+For determining the starting value, we first collect the output of the 
+following commands:
+
+$ { hostname -f && logname && LANG=C date -u; } | tee account-info.txt
+
+In addition, a counter-obfuscation password must be added as the last file of 
+that line.
+
+This password must only be known to those who want to generate new nonces for 
+the same purpose. The same such password may be used for different accounts on 
+different machines, which are all controlled by the same user.
+
+This password is used to obfuscate the counter value encoded within a nonce, 
+so that someone without knowledge of this password cannot derive the counter 
+value from a nonce.
+
+The following procedure could be used to reasonable safely create such a 
+password:
+
+$ dd if=/dev/urandom bs=1 count=32 2> /dev/null > t
+$ h=/usr/local/sbin:/sbin:/usr/sbin:/opt/sbin:$PATH
+$ (PATH=$h && command -v haveged > /dev/null 2>& 1) || h=
+$ test "$h" && (PATH=$h haveged -f - -n 32 2> /dev/null >> t)
+$ h=/dev/hwrng && test -c "$h" && test -r "$h" || h=
+$ test "$h" && dd if="$h" bs=1 count=32 2> /dev/null >> t
+$ openssl sha256 -binary < t | openssl base64 | tr -d = >> account-info.txt
+$ unset h; rm t
+
+The account-info.txt file is then hashed or applied to some password-based key 
+derivation algorithm in order to obtain 512 bits of key-material from it.
+
+This material is split into two 256 bit keys.
+
+One of those keys will be used as the starting value of the counter.
+
+The other key will be used for encrypting the current counter value, which 
+will yield the next nonce value to be emitted.
+
+The inclusion of the current date and time makes it highly unlikely that the 
+same account-info will ever be generated twice by accident.
+
+The inclusion of the counter-obfuscation password makes it impossible for 
+someone who does not know that password to derive the counter value from the 
+nonce.
+
+The fact that the counter value is encrypted rather than just hashed ensures 
+it will never repeat before 2 ** 256 nonces have been emitted.

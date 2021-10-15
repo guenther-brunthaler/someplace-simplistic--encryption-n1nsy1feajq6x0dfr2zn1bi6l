@@ -1,241 +1,73 @@
 Secure stream encryption interface
 ==================================
+v2021.288
 
-* Encryption can be done in one pass, appending the MAC after the
-  end of the ciphertext.
+Format of this text: Flowed (space before EOL indicates soft line break)
 
-* Decryption, however, is necessarily a two-step process: First
-  the MAC must be verfied. And only then data decryption must be
-  attempted.
+* Encryption can be done in one pass, appending the MAC after the end of the 
+  ciphertext.
+
+* Decryption, however, is necessarily a two-step process: First the MAC must 
+  be verfied. And only then data decryption must be attempted.
 
 Why?
 
-Because the decrypted data may otherwise have been maliciously
-manipulated, posing a danger to the programs which are supposed
-to process the decrypted data.
+Because the decrypted data may otherwise have been maliciously manipulated, 
+posing a danger to the programs which are supposed to process the decrypted 
+data.
 
-For instance, the plaintext might have been compressed before
-encryption. In this case, the next step after decryption would
-naturally be decompression.
+For instance, the plaintext might have been compressed before encryption. In 
+this case, the next step after decryption would naturally be decompression.
 
-But most decompressors are complex programs. When feeding illegal
-bitstream to them, they may crash, hang, or make their process
-run out of memory.
+But most decompressors are complex programs. When feeding illegal bitstream to 
+them, they may crash, hang, or make their process run out of memory.
 
-Therefore, is it paramount for strong security that no decryption
-is actually performed unless the MAC has been verified.
+Therefore, is it paramount for strong security that no decryption is actually 
+performed unless the MAC has been verified.
 
-Therefore a high-level interface is needed which allows to read
-the encrypted stream twice: Once for verifying the MAC, the
-second time for actual decryption.
+Therefore a high-level interface is needed which allows to read the encrypted 
+stream twice: Once for verifying the MAC, the second time for actual 
+decryption.
 
-* Input might come from a pipeline. In this case, the whole
-  pipeline has to be processed twice, and its output must be
-  identical.
+* Input might come from a pipeline. In this case, the whole pipeline has to be 
+  processed twice, and its output must be identical.
 
-* Input might come from a seekable file. This allows to determine
-  the size of the ciphertext and thus the starting offset of the
-  MAC in advance. This also allows a more efficient reader
-  implementation without internal buffer copying (which is
-  necessary otherwise because then it must alway be assumed the
-  last bytes read are part of the MAC).
+* Input might come from a seekable file. This allows to determine the size of 
+  the ciphertext and thus the starting offset of the MAC in advance. This also 
+  allows a more efficient reader implementation without internal buffer 
+  copying (which is necessary otherwise because then it must alway be assumed 
+  the last bytes read are part of the MAC).
 
-* Store ciphertext and MAC in different files. That does not
-  really accomplish anything, however: The ciphertext must still
-  be read twice.
+* Store ciphertext and MAC in different files. That does not really accomplish 
+  anything, however: The ciphertext must still be read twice.
 
-The basic design decision is: While encryption can always be
-implemented as a 1-pass streaming process, shell decryption
-support input from pipelines or should it insist on seekable
-files?
+The basic design decision is: While encryption can always be implemented as a 
+1-pass streaming process, shell decryption support input from pipelines or 
+should it insist on seekable files?
 
-At first glance, the second method seems clearly more elegant:
-Both encryption and decryption could use a similar interface,
-using shell redirection for input/output, both are filters which
-can be part of a pipeline.
+At first glance, the second method seems clearly more elegant: Both encryption 
+and decryption could use a similar interface, using shell redirection for 
+input/output, both are filters which can be part of a pipeline.
 
 But can they?
 
-Decryption required the input must be read twice. Which means
-there is an intrinsic asymmetry here: The decryption pipeline
-must be processed twice, is required to deliver the same input
-data in both cases, and the decryption utility must be run with
-different command lines in order to differentiate between the two
-phases. In addition, the result of the first phase must be
-considered before even attempting to run the second phase in case
-of an integrity failure detected by the MAC.
+Decryption required the input must be read twice. Which means there is an 
+intrinsic asymmetry here: The decryption pipeline must be processed twice, is 
+required to deliver the same input data in both cases, and the decryption 
+utility must be run with different command lines in order to differentiate 
+between the two phases. In addition, the result of the first phase must be 
+considered before even attempting to run the second phase in case of an 
+integrity failure detected by the MAC.
 
-This does not look the streaming decryption input variant look
-superior any more!
+This does not look the streaming decryption input variant look superior any 
+more!
 
-Therefore, we drop this idea and accept different interfaces for
-encryption and decryption:
+Therefore, we drop this idea and accept different interfaces for encryption 
+and decryption:
 
 <utility> <key_file> < <plaintext> > <nonce+ciphertext+mac>
 
 <utility> <key_file> <nonce+ciphertext+mac> > <plaintext>
 
-This has also the advantage that no -d or -e option is required
-any longer; the number of arguments determined the
-encryption/decrytion mode.
-
-
-How to obtain a nonce
----------------------
-
-Encryption needs a nonce.
-
-But where to we get one from, and how can we assure it is really
-always diffferent?
-
-For technical reasons, the nonce should be 32 bytes long. That
-is 256 bits - long enough to withstand even quantum computer
-attacks.
-
-But how to generate one?
-
-The naive approach would be to just use random numbers.
-
-But how can one be sure they are really random enough? That is,
-where is the guarantee that there is enough entropy in the
-numbers?
-
-For instance, drawing them from /dev/urandom ist not a good idea:
-There are no guarantees regarding the entropy of /dev/urandom,
-and thus is is quite possible that the same nonce could be
-generated "randomly" at different times. Clearly too dangerous!
-
-We could take the numbers from /dev/random. That should be
-secure. But it could block! Clearly a bad idea if we need to
-encrypt data *now* and have no time sitting around and waiting
-for more entropy from /dev/random. Also, can we really trust
-/dev/random to calculate its entropy reliably? For instance, it
-might over-estimate the amount of entropy actually retrieved from
-some of its entropy sources. Better not to depend on all that!
-
-Anyway, the best source of a nonce is not random numbers, but
-rather a simple counter!
-
-When starting that counter at 0, it is guaranted the nonce will
-never repeat unless the counter overruns. Which will happen about
-*never* with a 256 bit counter.
-
-But there are still problems:
-
-* We generally do not want anyone to know the order in which our
-  messages have been encrypted, nor how many messages in total we
-  have encrypted so far. Which means the counter value must be
-  tranformed in a way that does not change its uniqueness (i.e.
-  not a hash) yet makes it impossible to derive the counter value
-  from the transformed nonce without additional information not
-  available to the attacker.
-
-* We might use the same key on different machines and accounts.
-  How can be ensure that all those instances use different
-  counter values?
-
-* What if there is no write access available on a machine?
-
-The first problem must clearly be solved by encryption. An
-encrypted counter will always be unique, because it could be
-decrypted back into a unique counter if the encryption key was
-known.
-
-Therefore we need a secret nonce encryption key shared among all
-machines and accounts using the same encryption key.
-
-And obviously we already have such a shared key already: The
-encryption key itself!
-
-However, it is better to use a separate randomly-created nonce
-encryption key: We might want to share the same counter with
-different keys. This means the nonce encryption must be
-completely independent from a message-specific key.
-
-We store a 32-octet file `nonce.key` drawn from /dev/random
-locally.
-
-The second problem is harder to solve.
-
-The best solution seems to be including a machine+account
-specific identifier with the counter. That identifier must of
-course be unique, and it serves as a "namespace" for the actual
-counter.
-
-Assuming that a 192 bit counter will be as unlikely to ever
-overflow like a 256 bit counter, this leaves us with 64 bits for
-the machine/account identifier.
-
-This can be calculated by applying an arbitrary hash function,
-but we will use the same hash function which is also used to
-calculate the MAC, reducing dependencies on external tools.
-
-This specification document `namespace.txt` should include at
-least:
-
-* HOSTNAME (FQDN): fqdn of the host (hostname -f)
-* ACCOUNT NAME: zzz
-* NONCE NAMESPACE BITS: 64
-* NONCE VARIABLE BITS: 192
-* NONCE OCTET ORDER: BIG ENDIAN
-* NONCE IS PERSISTENT COUNTER: YES
-* NONCE IS RANDOM: NO
-* NONCE IS CLOCK_REALTIME (RIGHT-ALIGNED, 32 BIT NSECS): NO
-* CREATED/SNAPSHOT: YYY-MM-DD HH:MM:SS UTC
-
-All those entries should be snapshots made at the date/time
-specified by the last entry.
-
-The 8-octet hash of this document shall be stored as
-`namespace.ctr`.
-
-A second hash of this document with the "YES" replaced by a "NO"
-and the "NO" of the "RANDOM"-line replaced by a "YES"
-should be stored as `namespace.rnd`.
-
-A third hash of this document with the "YES" replaced by a "NO"
-and the "NO" of the "CLOCK"-line replaced by a "YES"
-should be stored as `namespace.clk`.
-
-The chance of two hashes of such files colliding randomly is a
-about 1 in (2 ** 32) / 3 cases - which means we could create about 1
-billion of such accounts before there is a 50 : 50 chance of
-collision. This is an acceptable risk.
-
-The above information files should be stored in plaintext along
-with a hashed and truncated binary version of it (presenting the
-actual namepace prefix). This allows to verify the binary files
-just in case they might have been tampered with.
-
-There should also exist a file `counter.bin` file with initial
-contents of 24 zero octets, representing the nonce counter for
-this account.
-
-As long a the nonce counter can be written to, a new nonce is
-generated by first incrementing the nonce counter value and
-saving it back into the counter file (which must be done while
-holding an exclusive advisory lock on the file).
-
-Then the contents of the file `namspace.ctr` must be appended to
-the new counter value, forming the unencrypted nonce.
-
-If `counter.bin` is not writable but the date/time of the system
-is available and newer than that of `counter.bin`, then use the
-`clock_gettime(CLOCK_REALTIME, ...)` POSIX function for obtaining
-the current date/time in as `tv_sec` and `tv_nsec`. Sleep for at
-least one nanosecond and call the function a second time,
-comparing whether the time has changed already. Continue this
-until the time has actually changed. Then use the originally
-obtained time in the remaining steps. Pad `tv_nsec` into a 32-bit
-field, encode it as big endian, and use it as the right end of
-the nonce. Pad the `tv_sec` into a 160-bit field in the same way
-and prepend it to the nonce. Finally, prepend the contents of
-file `namespace.clk`, completing the unencrypted nonce.
-
-If neither `counter.bin` is writable nor date/time is reliable,
-obtain a 192-bit value from /dev/random, prepend the contents of
-file `namespace.rnd` to it it, and use this as the unencrypted
-nonce.
-
-In all 3 cases, encrypt the unencrypted nonce with `nonce.key`,
-creating the actual nonce to be used with the next encryption.
+This has also the advantage that no -d or -e option is required any longer; 
+the number of arguments determined the encryption/decrytion mode.

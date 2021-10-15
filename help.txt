@@ -1,0 +1,56 @@
+ Note that Treyfer-CFB, like most stream ciphers, requires a one-time key. 
+ This means that under no circumstances must the same exact key be used to 
+ encrypt more than a single message!
+ 
+ It is therefore recommended to combine a long-term key with a salt (counter, 
+ timestamp or random value) in order to get a unique per-message key. A good 
+ source of unique output would be the output of the command
+ 
+ \$ { hostname -f && id && date --iso-8601=ns; }
+ 
+ using GNU extensions of the "date" utility for nanosecond precision. Then 
+ calculate the binary SHA-256 hash of this:
+ 
+ \$ ...like_above... | openssl sha256 -binary > salt.bin
+ 
+ and use this as the salt. Then the per-message key can be derived from this 
+ and a long-term key as follows:
+ 
+ \$ { cat salt.bin key.psw salt.bin; } | openssl sha256 -binary > once.key
+ 
+ You can then use once.key as the binary key for encrypting a single message 
+ (after converting it into decimal octet values). But you also need to send 
+ salt.bin to the recipient along with the message, because it is needed for 
+ decryption also.
+ 
+ Regarding the <rounds> parameter, note that this specifies the number of full 
+ rounds. (Every full round consists of 8 sub-rounds internally.)
+ 
+ Regarding the block size, it is recommended but not required that the block 
+ size is a power of 2.
+ 
+ Regarding the <sbox> parameter:  A proper s-box represents a random-looking 
+ permutation of the values from 0 through 255. But there is no such 
+ restriction for Treyfer, so malformed s-boxes can be used, too. However, for 
+ best security, a proper s-box should be chosen.
+ 
+ As a recommendation, construct an s-box like this: First start with the 
+ identity permutation, that is the values 0 through 255 in ascending order. 
+ Then run a single pass through the elements of this permutation. For every 
+ element, obtain a pseudo-random number between 0 and 255, and swap the 
+ element at the current position with the element indexed by the pseudo-random 
+ number.
+ 
+ It is recommended to obtain the pseudo-random numbers from the binary 
+ representation of Pi or some similar "nothing up my sleeve" number, by 
+ converting the number into binary and then chopping it into slices of 8 bits, 
+ starting with the most significant bit of the number (and ignoring the 
+ decimal point). Then emit every slice as the next random number octet.
+ 
+ Note that the receiver needs to know the s-box, the salt, the long-term key 
+ and of course the encrypted message in order to be able to decrypt it. It is 
+ OK to always use the same s-box and long-term key, but the salt needs to be 
+ sent along with the message every time.
+ 
+ Only the long-term key must be kept secret. The s-box does not need to be 
+ secret and the salt cannot be secret.

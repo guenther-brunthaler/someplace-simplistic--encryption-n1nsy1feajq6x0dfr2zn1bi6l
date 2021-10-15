@@ -1,0 +1,94 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2021.68
+
+Copyright (c) 2021 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+awk -f /dev/fd/5 5<< 'EOF'
+
+BEGIN {
+	for (i= 0; i < 16; ++i) {
+		printf "copy_to32(w[%s], block[%s]);\n", i, i
+	}
+	for (rounds= 20; rounds--; ) {
+		for (qr= 0; qr < 4; ++qr) {
+			c= o= qr
+			for (i= 0; i < 4; ++i) {
+				v[i]= o
+				if (diagonal) {
+					if (++c == 4) {
+						c-= 4; o-= 4
+					}
+					o+= 5
+				} else {
+					o+= 4
+				}
+			}
+			Q(v)
+		}
+		diagonal= 1 - diagonal
+	}
+	for (i= 0; i < 16; ++i) {
+		printf "add_to32(block[%s], w[%s]);\n", i, i
+	}
+}
+
+function Q(v    , i) {
+	for (i in v) v[i]= sprintf("w[%s]", v[i])
+	Q2(16 - 0 * 4, 16 - 1 * 4, v); Q2(16 - 2 * 4, 7, v)
+}
+
+function Q2(r1, r2, v) {
+	Q3(v[0], v[1], v[3], r1); Q3(v[2], v[3], v[1], r2)
+}
+
+function Q3(x, y, z, r) {
+	printf \
+		"add_to32(%s, %s); xor_to32(%s, %s); rotl32(%s, %s);\n" \
+		, x, y, z, x, z, r
+}
+
+EOF

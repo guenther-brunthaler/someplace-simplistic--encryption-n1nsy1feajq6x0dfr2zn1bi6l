@@ -1,0 +1,221 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2021.59
+
+Copyright (c) 2021 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - POSIX shell/AWK implementation of the 'Treyfer' block cipher with |
+variable key length and block size|
+|
+Usage: $APP [ <options> ] [ -- ] < <input_stream>|
+|
+$APP reads ASCII words (separated by whitespace, including newline sequences) |
+from standard input and interprets them according to one of the following |
+format:|
+|
+<key> S <sbox> [ B <blocksize> ] [ R <rounds> ] T <data>|
+|
+where|
+|
+"[ ... ]" means that "..." is optional any may be omitted|
+|
+"S", "B", etc.: those literal one-character words represent themselves|
+|
+<key>: An arbitrary number of decimal numbers which will be interpreted as |
+the octet (= binary 8-bit byte) values representing a Treyfer encryption key. |
+The number of values determines the key size in octets.|
+|
+S <sbox>: Exactly 256 decimal octet values representing the s-box to be used |
+by the Treyfer core algorithm.|
+|
+B <blocksize>: The encryption block size (in octets, not in bits) to used for |
+the underlying Treyfer block cipher. Defaults to 8 if omitted, because this |
+is the block size of the original Treyfer algorithm. A block size of 64 is |
+recommended, though, in order to protect against a known attack.|
+|
+R <rounds>: The number of rounds to use in the underlying block cipher |
+algorithm. If omitted, defaults to 4 times the block size because this is |
+what the original algorithm uses.|
+|
+T <data>: An arbitrary number of decimal numbers which will be interpreted as |
+the octet values of the plaintext octets to be encrypted. The number of |
+values must be an integral multiple of the block size.|
+|
+All "<...>" items explained above must be unsigned decimal integer numbers |
+represented as ASCII text.|
+|
+Options supported:|
+|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+|
+|
+$APP processes its input as blocks of fixed size. The block size used is the |
+effective value of the <blocksize> parameter.|
+|
+Every block of input data will be encrypted independent of other blocks. This |
+is also known as the 'electronic codebook' (ECB) mode of block cipher |
+operation. ECB requires the number of input data values to be an integral |
+multiple of the encryption block size.|
+|
+$APP will output every encoded block as ASCII decimal numbers with 20 numbers |
+per line. The last line of every output block will be shorter if the |
+encryption block size is not an integral multiple of 20.|
+|
+$APP can only encrypt data. In order to be useful, it must be combined with |
+another mode of operation which does not require decryption. For instance, |
+the CFB, CTR and OFB modes turn every block cipher into a stream cipher which |
+can encrypt as well as decrypt data, and they do not make any use of the |
+underlying block cipher's decryption function.|
+|
+$APP implements the original 'Treyfer' MAC algorithm, abusing it as an |
+encryption-only block cipher.|
+|
+As an optional extension of the original algorithm, $APP allows to freely |
+select the key size, block size and number of rounds. The original algorithm |
+uses 8 octets for both the block and key size and 32 rounds.|
+|
+However, those parameters are completely insecure by today's standards. It is |
+recommended to use a 32-octet key, a block size of 64 octets and 256 rounds |
+(the default value when specifying a block size of 64) instead.|
+|
+This assumes that a full-entropy key is used, like the ones returned from |
+"/dev/random". (Never use "/dev/urandom" for generating encryption keys, |
+because the output of "/dev/urandom" can be predictable to some extent.) If |
+the key octet values represent a human-chosen pass-phrase instead which |
+conveys some actual meaning for a human being, the key needs to be 3-4 times |
+that size for the same level of security.|
+|
+There is no hard restriction for the key size, but only the first |
+(<blocksize> times <rounds> times 8) key octets will effect the encryption. |
+Also, the entropy of the algorithm is limited by its block size. Which means |
+that more than <blocksize> fully-entropy keys octets drawn from |
+/dev/random would be wasted entropy.|
+|
+Regarding the <rounds> parameter, note that this specifies the number of full |
+rounds. (Every full round consists of 8 sub-rounds internally.)|
+|
+Regarding the block size, it is recommended but not required that the block |
+size is a power of 2.|
+|
+Regarding the <sbox> parameter: A proper s-box represents a random-looking |
+permutation of the values from 0 through 255. (This means every individual |
+value occurs exactly once, but in random order.) But there is no such |
+restriction for Treyfer, which allows any sequence of 256 random numbers |
+between 0 and 255 to be used as an s-box. However, for best security, a |
+proper s-box should be chosen.|
+|
+Only the key must be kept secret. The s-box does not need to be secret.|
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+show() {
+	fold -sw $LINEWIDTH
+}
+LINEWIDTH=`
+	cmd=tput; command -v $cmd > /dev/null 2>& 1 \
+	&& test -t 0 && $cmd cols \
+	|| echo 66
+`
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+awk -v failure=`false || echo $?` -f /dev/fd/5 5<< 'EOF'
+
+# Globals: i, i1, i2, s[256], ki, kr[128], oitems, oline.
+# "final" globals: h42o[16], xor4[16, 16], o2h4[256], o2l4[256].
+
+BEGIN {
+	make_lookup_tables()
+}
+
+{
+	for (i= 1; i <= NF; ++i) {
+		if (!buffered) {
+			buffer= $i
+			buffered= 1
+		} else {
+			emit(xor8(buffer, $i))
+			buffered= 0
+		}
+	}
+}
+
+END {
+	if (oitems) print oline
+	if (buffered) {
+		die( \
+			"incomplete pair (single '" buffer "')" \
+			" at end of input stream!" \
+		)
+	}
+}
+
+function xor8(a, b) {
+	return h42o[xor4[o2h4[a], o2h4[b]]] + xor4[o2l4[a], o2l4[b]]
+}
+
+# Set up h42o[16], xor4[16, 16], o2h4[256] and o2l4[256].
+function make_lookup_tables(    s, j, o, b, c, m, b1, b2, l4, h4) {
+	for (o= l4= h4= 0; o != 256; ++o) {
+		o2h4[o]= h4; o2l4[o]= l4
+		if (l4 == 0) h42o[h4]= o
+		c= m= 1
+		for (i= s= 0; i < 4; m+= m) {
+			b1= b[i]; b2= b[i++ + 4]
+			if ((b1 || b2) && !(b1 && b2)) s+= m
+		}
+		xor4[h4, l4]= s
+		if (++l4 == 16) { ++h4; l4= 0 }
+		for (i= 0; c; ++i) {
+			if (c= (s= b[i] + c) > 1) s-= 2
+			b[i]= s
+		}
+	}
+}
+
+function emit(val) {
+	if (oitems == 20) { print oline; oitems= 0 }
+	oline= oitems++ ? oline " " val : val
+}
+
+function die(msg) {
+	print msg >> "/dev/stderr"
+	exit failure
+}
+
+EOF

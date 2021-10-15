@@ -1,0 +1,55 @@
+#! /usr/bin/awk -f
+
+function die(msg) {
+	print msg > "/dev/stderr"
+	exit 1
+}
+
+function prng_init() {
+	prng_addend= atan2(0, -1)
+}
+
+function prng_new(me, seed, min, max) {
+	if (seed > 1) seed= 1 / seed
+	me["state"]= seed - int(seed)
+	me["span"]= max + 1 - (me["min"]= min)
+}
+
+function prng_next(me) {
+	me["state"]= me["state"] * 997 + prng_addend
+	return int(me["min"] + (me["state"]-= int(me["state"])) * me["span"])
+}
+
+function swap(array, reverse, i1, i2    , t) {
+	t= array[i1]; array[i1]= array[i2]; array[i2]= t
+}
+
+function verify_inverses(a, rev    , i) {
+	for (i in a) {
+		if (rev[a[i]] != i) {
+			die("a[" i "] == " a[i] ", rev[" a[i] "] == " \
+				rev[a[i]])
+		}
+	}
+}
+
+function main(    sbox_size, seed, rounds, i, s, rs) {
+	rounds= 100
+	sbox_size= 256
+	seed= 42
+	prng_init()
+	prng_new(rnd, seed, 0, sbox_size - 1)
+	for (i= sbox_size; i--; ) s[i]= rs[i]= i
+	for (i= sbox_size; i--; ) {
+		verify_inverses(s, rs)
+		swap(s, rs, i, prng_next(rnd))
+		verify_inverses(s, rs)
+	}
+	while (rounds--) {
+		verify_inverses(s, rs)
+		swap(s, rs, prng_next(rnd), prng_next(rnd))
+		verify_inverses(s, rs)
+	}
+}
+
+BEGIN {main()}

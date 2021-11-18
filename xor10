@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2021.322
+Version 2021.322.1
 
 Copyright (c) 2020-2021 Guenther Brunthaler. All rights reserved.
 
@@ -66,8 +66,8 @@ do
 done
 shift `expr $OPTIND - 1 || :`
 
-put_though=0
-expr x"$1" : x'[1-9][0-9]*$' > /dev/null && { put_though=$1; shift; }
+put_through=0
+expr x"$1" : x'[1-9][0-9]*$' > /dev/null && { put_through=$1; shift; }
 
 case $# in
 	0) ;;
@@ -75,12 +75,12 @@ case $# in
 esac
 
 awk \
-	-v clen=$put_though \
+	-v clen=$put_through \
 	-v failure=`false || echo $?` \
 	-f /dev/fd/5 5<< 'EOF'
 
 # Globals: i, i1, i2, s[256], ki, kr[128], oitems, oline, clen, cleft, 
-# failure, buffer.
+# failure, buffer, buffered.
 # "final" globals: h42o[16], xor4[16, 16], o2h4[256], o2l4[256].
 
 BEGIN {

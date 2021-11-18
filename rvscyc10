@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2021.322.1
+Version 2021.322
 
 Copyright (c) 2021 Guenther Brunthaler. All rights reserved.
 
@@ -12,19 +12,18 @@ Distribution is permitted under the terms of the GPLv3.
 
 help() {
 	cat << ===
-$APP - POSIX shell/AWK implementation of decimal subtraction modulo 256|
+$APP - POSIX shell/AWK implementation to reverse order within decimal value |
+groups|
 |
-Usage: $APP [ <options> ] [ -- ] [ <pass-through-count> ] < <input_stream>|
+Usage: $APP [ <options> ] [ -- ] <group_size> < <input_stream>|
 |
 $APP reads ASCII decimal numbers (separated by whitespace) from standard input |
 and considers them to represent binary octet values to be processed as a |
 sequence of cycles, writing the result to standard output (also as ASCII |
 decimal numbers).|
 |
-Every cycle of input numbers consists of <pass-through-count> values (defaults |
-to 0) which will be put through unchanged. The next two numbers will be |
-subtracted modulo 256, outputting the result as a single value. This ends the |
-cycle which will then repeat as long as there are more input values.|
+Every cycle of input numbers consists of <group_size> values which will be put |
+through unchanged, except that the order within the group will be reversed.
 |
 |
 Options supported:|
@@ -66,35 +65,28 @@ do
 done
 shift `expr $OPTIND - 1 || :`
 
-put_through=0
-expr x"$1" : x'[1-9][0-9]*$' > /dev/null && { put_through=$1; shift; }
+expr x"$1" : x'[1-9][0-9]*$' > /dev/null
+clen=$1; shift
 
 case $# in
 	0) ;;
 	*) exit_help `false || echo $?` >& 2
 esac
 
-awk \
-	-v clen=$put_through \
-	-v failure=`false || echo $?` \
-	-f /dev/fd/5 5<< 'EOF'
+awk -v clen=$clen -v failure=`false || echo $?` -f /dev/fd/5 5<< 'EOF'
 
 # Globals: i, i1, i2, s[256], ki, kr[128], oitems, oline, clen, cleft, 
-# failure, buffer, buffered.
+# failure, cyc[].
 
 BEGIN {
-	cleft= clen+= 2
+	cleft= clen
 }
 
 {
 	for (i= 1; i <= NF; ++i) {
-		if (cleft > 2) {
-			emit($i)
-		} else if (cleft == 2) {
-			buffer= $i
-			buffered= 1
-		} else {
-			emit(mod256sub(buffer, $i))
+		cyc[cleft]= $i
+		if (cleft == 1) {
+			emit_rvscyc()
 			cleft= clen
 			continue
 		}
@@ -112,9 +104,8 @@ END {
 	}
 }
 
-function mod256sub(u1, u2) {
-	if (u1 < u2) u1+= 256
-	return u1 - u2
+function emit_rvscyc(    i) {
+	for (i= 1; i <= clen; ++i) emit(cyc[i])
 }
 
 function emit(val) {

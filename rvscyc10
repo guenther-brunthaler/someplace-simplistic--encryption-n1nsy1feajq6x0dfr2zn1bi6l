@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2021.322
+Version 2021.322.1
 
 Copyright (c) 2021 Guenther Brunthaler. All rights reserved.
 
@@ -15,15 +15,17 @@ help() {
 $APP - POSIX shell/AWK implementation to reverse order within decimal value |
 groups|
 |
-Usage: $APP [ <options> ] [ -- ] <group_size> < <input_stream>|
+Usage: $APP [ <options> ] [ -- ] <group_size> [ <put_through> ] < |
+<input_stream>|
 |
 $APP reads ASCII decimal numbers (separated by whitespace) from standard input |
 and considers them to represent binary octet values to be processed as a |
 sequence of cycles, writing the result to standard output (also as ASCII |
 decimal numbers).|
 |
-Every cycle of input numbers consists of <group_size> values which will be put |
-through unchanged, except that the order within the group will be reversed.
+Every cycle of input numbers consists of <put_through> (defaults to 0) values |
+which will be put through unchanged, followed by <group_size> values which |
+will be output in reversed order within that group.
 |
 |
 Options supported:|
@@ -66,29 +68,37 @@ done
 shift `expr $OPTIND - 1 || :`
 
 expr x"$1" : x'[1-9][0-9]*$' > /dev/null
-clen=$1; shift
+grpsz=$1; shift
+
+clen=0
+expr x"$1" : x'[1-9][0-9]*$' > /dev/null && { clen=$1; shift; }
 
 case $# in
 	0) ;;
 	*) exit_help `false || echo $?` >& 2
 esac
 
-awk -v clen=$clen -v failure=`false || echo $?` -f /dev/fd/5 5<< 'EOF'
+awk -v grpsz=$grpsz -v clen=$clen -v failure=`false || echo $?` \
+	-f /dev/fd/5 5<< 'EOF'
 
 # Globals: i, i1, i2, s[256], ki, kr[128], oitems, oline, clen, cleft, 
-# failure, cyc[].
+# failure, grpsz, cyc[].
 
 BEGIN {
-	cleft= clen
+	cleft= clen+= grpsz
 }
 
 {
 	for (i= 1; i <= NF; ++i) {
-		cyc[cleft]= $i
-		if (cleft == 1) {
-			emit_rvscyc()
-			cleft= clen
-			continue
+		if (cleft <= grpsz) {
+			cyc[cleft]= $i
+			if (cleft == 1) {
+				emit_rvscyc()
+				cleft= clen
+				continue
+			}
+		} else {
+			emit($i)
 		}
 		--cleft
 	}
@@ -105,7 +115,7 @@ END {
 }
 
 function emit_rvscyc(    i) {
-	for (i= 1; i <= clen; ++i) emit(cyc[i])
+	for (i= 1; i <= grpsz; ++i) emit(cyc[i])
 }
 
 function emit(val) {

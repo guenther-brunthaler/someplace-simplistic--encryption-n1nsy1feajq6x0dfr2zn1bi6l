@@ -113,7 +113,9 @@ static char version_info[]= {
 #include <getopt_nh7lll77vb62ycgwzwf30zlln.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
 #include <assert.h>
+#include "arc4_common.h"
 
 static char const b32custom_alphabet[]= {
    /*
@@ -193,7 +195,9 @@ static char const sbox[256]= {
    , '\046', '\125', '\124', '\223', '\230', '\214', '\151', '\133'
 };
 
-static void treyfer_compress(unsigned char (*digest)[64], (*block)[64]) {
+static void treyfer_compress(
+   unsigned char (*digest)[64], unsigned char (*block)[64]
+) {
    unsigned i;
    {
       #define MOD(x, m) ((unsigned char)(x) & (unsigned char)((m) - 1))

@@ -1,0 +1,44 @@
+#! /bin/sh
+# Emit a constant yet virtually infinite sequence of pseudo-random octets as
+# decimal ASCII values.
+#
+# The pseudo-random sequence is based on the following variant of D. E.
+# Knuth's "Additive random number generator":
+#
+# a[i] := (a[i - 24] + a[i - 55]) fmod 1.0
+#
+# The a[] are seeded by a similar variant of a linear congruency random number
+# generator with multiplier 997 and addend pi. The initial seed for this
+# generator is the value 42, scaled into the interval [0.5, 1.0[.
+#
+# v2021.334
+
+exec awk -f - << 'EOF'
+
+# Globals: m, a[0 .. m-1], i, offset.
+
+BEGIN {
+	offset= (m= 55) - 24
+	init(42)
+	for (;;) print generate_next()
+}
+
+function init(seed    , pi, i, x) {
+	while (seed < .5) seed+= seed
+	while (seed >= 1) seed/= 2
+	pi= atan2(0, -1)
+	for (i= m; i--; ) {
+		seed= seed * 997 + pi
+		a[i]= seed-= int(seed)
+	}
+}
+
+function generate_next(    j, x) {
+	if ((j= i + offset) >= m) j-= m
+	if ((x= a[i] + a[j]) >= 1.0) --x
+	a[i]= x
+	if (++i == m) i= 0
+	return int(x * 256)
+}
+
+EOF

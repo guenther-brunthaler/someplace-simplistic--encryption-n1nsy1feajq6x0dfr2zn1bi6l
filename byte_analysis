@@ -1,0 +1,46 @@
+#! /bin/sh
+exec awk -f /dev/fd/5 5<< 'EOF'
+
+# Globals: n, b[8, n].
+
+BEGIN {n= 0}
+
+{process_input()}
+
+function process_input(    i) {
+	for (i= 1; i <= NF; ++i) process_sample($i)
+}
+
+function process_sample(octet    , i, v) {
+	for (i= 8; i--; ) {
+		if (octet >= 128) {
+			octet-= 128; v= +1
+		} else {
+			v= -1
+		}
+		octet+= octet
+		b[i, n]= v
+	}
+	++n
+}
+
+END {analyze()}
+
+function analyze(    i, m, sd, j, x) {
+	print "N = " n
+	print ""
+	print "bit #\t" "mean\t" "stdev"
+	for (i= 0; i < 8; ++i) {
+		m= sd= 0
+		for (j= n; j--; ) m+= b[i, j]
+		m/= n
+		for (j= n; j--; ) {
+			x= b[i, j] - m
+			sd+= x * x
+		}
+		sd= sqrt(sd / n)
+		printf "%d\t%.4f\t%.4f\n", i, m, sd
+	}
+}
+
+EOF

@@ -1,4 +1,4 @@
-#define VERSTR_1 "Version 2021.2"
+#define VERSTR_1 "Version 2021.326"
 #define VERSTR_2 "Copyright (c) 2020-2021 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -15,7 +15,7 @@ static char help[]= { /* Formatted as 66 output columns. */
    "Supported options:\n"
    "\n"
    "-E <one_time_key>: Selects raw encryption mode. Minimally slower\n"
-   "then decryption. <one_time_key> is the pathname of a file\n"
+   "than decryption. <one_time_key> is the pathname of a file\n"
    "containing the binary encryption key. This key must only be used\n"
    "for encrypting one specific message. It must not be reused for\n"
    "encrypting a different message.\n"
@@ -49,9 +49,9 @@ static char help[]= { /* Formatted as 66 output columns. */
    "binary keys (such as taken from from '/dev/random').\n"
    "\n"
    "This program uses ARCFOUR-drop3072 as a CSPRNG (cryptographically\n"
-   "secure pseudo-random generator) and takes the next three octets\n"
-   "(R0, R1 and R2) of its pseudo-random stream in order to\n"
-   "raw encrypt/decrypt the next plaintext/ciphertext octet P/C as\n"
+   "secure pseudo-random number generator) and takes the next three\n"
+   "octets R0, R1 and R2) of its pseudo-random output stream in order\n"
+   "to aw encrypt/decrypt the next plaintext/ciphertext octet P/C as\n"
    "follows:\n"
    "\n"
    "C = ((P - R2) ^ R1) - R0\n"

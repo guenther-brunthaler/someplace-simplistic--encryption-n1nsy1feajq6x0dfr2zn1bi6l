@@ -183,7 +183,7 @@ esac
 
 {
 	sh "$bin"/raw2dec < "$key"
-	echo R 3 T
+	echo D 3072 R 3 T
 	sh "$bin"/raw2dec
 } \
 | sh "$bin"/rc4csprng10 \

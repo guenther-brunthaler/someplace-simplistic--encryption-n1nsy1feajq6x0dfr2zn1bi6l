@@ -1,0 +1,182 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2021.351
+
+Copyright (c) 2021 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - Convert text pass phrase into normalized binary text|
+|
+Usage: $APP [ <options> ] [ -- ] < <single_line_passphrase_file>|
+|
+$APP reads text encoded according to the current locale from standard input, |
+converts the text into UTF-8 NFKC, and strips any ASCII control characters |
+(such as newline) from the result.|
+|
+The purpose of $APP is to convert a locale- and operating-system specific |
+pass phrase into a binary string which still contains the input text, but |
+converted in such a way that the result will be identical for all locales and |
+operating systems.|
+|
+This means that if the output of $APP is used as the key for an encryption |
+algorithm which expects a pass phrase as its key, then data encrypted on |
+one operating system using some locale can be decrypted successfully on a |
+different operating system using a different locale.|
+|
+For instance, Apple operating systems are known to encode UTF-8 in a |
+different normalization form than Linux systems, and various versions of |
+Microsoft operation systems do not encode text as UTF-8 at all.|
+|
+When converting the same text pass phrase on all the beforementioned |
+operating systems with $APP, the result will be binary identical, thus |
+creating a platform-independent compatible version of the pass phrase.|
+|
+Pass phrases are sometimes stored as locale-specific single-line text files |
+with the filename extension '.psw'.|
+|
+When such a file is redirected to $APP as its standard input, the output can |
+be used as a binary key for encryption algorithms which allow text pass |
+phrases as their keys.|
+|
+For algorithms such as ARCFOUR which require random-looking binary keys, the |
+output of $APP needs to be preprocessed further by a password-based key |
+derivation algorithm before using the result as the actual encryption key.|
+|
+Footnote: NFKC is the UNICODE normalization form "KC", which consists of |
+compatibility decomposition, followed by canonical composition.|
+|
+Options:
+|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+me=$0
+case $me in
+	/*) ;;
+	*)
+		me=`command -v "$me"`
+		case $me in
+			/*) ;;
+			*) me=$PWD/$me
+		esac
+esac
+helpers=`dirname -- "$me"`
+test -x "$helpers/`basename -- "$me"`"
+
+for need in dec2raw raw2dec
+do
+	need=$helpers/$need
+	test -x "$need" && continue
+	echo "Required helper utility '$need' is missing!" >& 2
+	false || exit
+done
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+check() {
+	"$@" > /dev/null 2>& 1 || return
+}
+
+have() {
+	check command -v "$1" || return
+}
+
+stripctl() {
+	sh "$helpers"/raw2dec \
+	| awk '{
+		o= ""
+		for (i= 1; i <= NF; ++i) {
+			if ((v= $i) < 32) continue
+			if (i != 1) o= o " " v; else o= v
+		}
+		print o
+	}' \
+	| sh "$helpers"/dec2raw
+}
+
+if have idn
+then
+	idn -n | stripctl
+elif have uconv
+then
+	uconv -x '::nfkc;' -t UTF-8 | stripctl
+elif have iconv
+then
+	if echo test | check iconv -t WINDOWS-1252
+	then
+		iconv -t WINDOWS-1252 | iconv -f WINDOWS-1252 -t UTF-8 \
+			| stripctl
+	elif echo test | check iconv -t LATIN1
+	then
+		iconv -t LATIN1 | iconv -f LATIN1 -t UTF-8 | stripctl
+	else
+		iconv -t US-ASCII | stripctl
+	fi
+else
+	L=$LANG
+	test -n "$LC_CTYPE" && L=$LC_CTYPE
+	test -n "$LC_ALL" && L=$LC_ALL
+	test "$L" = C && L=POSIX
+	if test "$L" = POSIX
+	then
+		stripctl
+	else
+		{
+			echo "Missing required conversion helper utility!"
+			echo "Please either"
+			echo
+			echo "$ export LANG=POSIX"
+			echo
+			echo "or install (in order of preference) one of the"
+			echo "following utilities:"
+			echo
+			echo idn
+			echo uconv
+			echo iconv
+			echo
+			echo "Note that 'iconv' might not be sufficient for"
+			echo "your locale. However, it works just fine for"
+			echo "most western locales."
+		} >& 2
+		false || exit
+	fi
+fi

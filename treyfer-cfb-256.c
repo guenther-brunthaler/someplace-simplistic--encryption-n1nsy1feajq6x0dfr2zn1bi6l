@@ -1,5 +1,5 @@
-#define VERSTR "Version 2021.57"
-#define COPYRIGHT_NOTICE "Copyright (c) 2021 Guenther Brunthaler."
+#define VERSTR "Version 2022.57"
+#define COPYRIGHT_NOTICE "Copyright (c) 2021-2022 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
    "treyfer-cfb-256 - Encrypt or decrypt binary data with a 256 bit\n"
@@ -21,14 +21,13 @@ static char help[]= { /* Formatted as 66 output columns. */
    "One way to ensure the IV is always unique is to use as message\n"
    "counter padded to 64 bytes as the IV. Another way is to use the\n"
    "the current date and time instead of the counter. Yet another\n"
-   "way is to use 64 bytes from /dev/random as the IV. (Using\n"
-   "/dev/urandom is not recommended because there are no guarantees\n"
-   "that the resulting IV would be unique with high probability.)\n"
+   "way is to use 64 bytes obtained from /dev/random as the IV.\n"
    "\n"
    "This program (ab)uses the 'Treyfer' MAC algorithm as an\n"
    "encryption-only block cipher except that the block size has been\n"
    "increased from 64 to 512 bit and the key size from 64 to 256\n"
-   "bit.\n"
+   "bit. Treyfer has been configured to use a constant s-box derived\n"
+   "from the digits of pi.\n"
    "\n"
    "This block cipher is then run in the CFB mode of operation,\n"
    "turning it into a stream cipher which can be used for both\n"
@@ -111,7 +110,7 @@ int main(int argc, char **argv) {
             followup_state= init_cfb; state= read_something;
             break;
          case init_cfb: /* Initialize CFB by encrypting the IV. */
-            eof_allowed= 1; /* Will stays like this from now on. */
+            eof_allowed= 1; /* Will stay like this from now on. */
             followup_state= read_buffer; /* state= encrypt_block; */
             /* Fall through. */
          case encrypt_block: /* Encrypt the block[] with Treyfer. */
@@ -125,13 +124,13 @@ int main(int argc, char **argv) {
             {
                unsigned i= 0;
                unsigned char t= block[0];
-               for (i= 0; i < CHAR_BIT * NUMROUNDS; ++i) {
+               for (i= 0; i < CHAR_BIT * NUMROUNDS; ) {
                   /* This is the core of the Treyfer algorithm. */
                   t= t + key[MOD_A(i, key)] & 0xff;
                   assert(t < DIM(sbox));
-                  t= MOD_A(sbox[t] + block[MOD_A(i + 1, block)], sbox);
+                  ++i; t= MOD_A(sbox[t] + block[MOD_A(i, block)], sbox);
                   /* ROT-L by 1 bit. */
-                  block[MOD_A(i + 1, block)]= t= (unsigned char)(
+                  block[MOD_A(i, block)]= t= (unsigned char)(
                      t + t & 0xff | t >> CHAR_BIT - 1
                   );
                }
@@ -144,7 +143,8 @@ int main(int argc, char **argv) {
             #undef MOD
             state= followup_state;
             break;
-         case read_buffer: /* Main loop. Try to read the next buffer of input. */
+         case read_buffer:
+            /* Main loop. Try to read the next buffer of input. */
             dst= buffer; bytes_read= BUFFER_SIZE;
             assert(eof_allowed);
             followup_state= cfb_buffer; state= read_something;

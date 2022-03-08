@@ -1,4 +1,4 @@
-#define VERSTR "Version 2022.57"
+#define VERSTR "Version 2022.65"
 #define COPYRIGHT_NOTICE "Copyright (c) 2021-2022 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
@@ -70,6 +70,7 @@ int main(int argc, char **argv) {
       switch (state) {
          case initial: /* Allocate the I/O buffer. */
             if (buffer= malloc(BUFFER_SIZE)) { state= read_key; break; }
+            error= "Out of memory!";
             fail:
             (void)fputs(error, stderr);
             (void)fputc('\n', stderr);
@@ -124,7 +125,7 @@ int main(int argc, char **argv) {
             {
                unsigned i= 0;
                unsigned char t= block[0];
-               for (i= 0; i < CHAR_BIT * NUMROUNDS; ) {
+               for (i= 0; i < ORIGINAL_BLOCK_BITS / 8 * NUMROUNDS; ) {
                   /* This is the core of the Treyfer algorithm. */
                   t= t + key[MOD_A(i, key)] & 0xff;
                   assert(t < DIM(sbox));

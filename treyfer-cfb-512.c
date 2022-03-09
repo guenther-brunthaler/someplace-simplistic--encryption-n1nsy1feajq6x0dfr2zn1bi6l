@@ -1,32 +1,33 @@
-#define VERSTR "Version 2022.65"
+#define VERSTR "Version 2022.67"
 #define COPYRIGHT_NOTICE "Copyright (c) 2021-2022 Guenther Brunthaler."
 
 static char help[]= { /* Formatted as 66 output columns. */
-   "treyfer-cfb-256 - Encrypt or decrypt binary data with a 256 bit\n"
+   "treyfer-cfb-512 - Encrypt or decrypt binary data with a 512 bit\n"
    "key.\n"
    "\n"
-   "In both cases a binary 32-byte long-term key is read from\n"
-   "standard input first. Then a 64-byte initialization vector (IV)\n"
-   "is read, followed by the data to be encrypted or decrypted. The\n"
-   "result will be written to standard output. Command line\n"
-   "arguments are not used.\n"
+   "In both cases a binary 64-byte long-term key is read from standard\n"
+   "input first. Then a 64-byte initialization vector (IV) is read,\n"
+   "followed by the data to be encrypted or decrypted. The result will\n"
+   "be written to standard output. Command line arguments are not\n"
+   "used.\n"
    "\n"
-   "The IV is arbitrary data and does not need to be kept secret,\n"
-   "but the same IV must never be used for encrypting more than a\n"
-   "single message using the same long-term key. The receiver needs\n"
-   "to know the IV for decrypting the message. It is recommended to\n"
-   "prepend the IV in front of the encrypted data when sending the\n"
-   "encrypted message to to the receiver.\n"
+   "The IV is arbitrary data and does not need to be kept secret, but\n"
+   "the same IV must never be used for encrypting more than a single\n"
+   "message using the same long-term key. The receiver needs to know\n"
+   "the IV for decrypting the message. It is recommended to prepend\n"
+   "the IV in front of the encrypted data when sending the encrypted\n"
+   "message to to the receiver.\n"
    "\n"
    "One way to ensure the IV is always unique is to use as message\n"
    "counter padded to 64 bytes as the IV. Another way is to use the\n"
-   "the current date and time instead of the counter. Yet another\n"
-   "way is to use 64 bytes obtained from /dev/random as the IV.\n"
+   "the current date and time instead of the counter. Yet another way\n"
+   "is to use 64 bytes obtained from /dev/random as the IV.\n"
    "\n"
    "This program (ab)uses the 'Treyfer' MAC algorithm as an\n"
-   "encryption-only block cipher except that the block size has been\n"
-   "increased from 64 to 512 bit and the key size from 64 to 256\n"
-   "bit. Treyfer has been configured to use a constant s-box derived\n"
+   "encryption-only block cipher except that both the key and block\n"
+   "size has been increased from 64 to 512 bit, and the number of\n"
+   "rounds has been increased by the same factor. This Treyfer\n"
+   "implementation has been configured to use a constant s-box derived\n"
    "from the digits of pi.\n"
    "\n"
    "This block cipher is then run in the CFB mode of operation,\n"
@@ -53,7 +54,7 @@ static char help[]= { /* Formatted as 66 output columns. */
 #define DIM(array) (sizeof(array) / sizeof *(array))
 
 int main(int argc, char **argv) {
-   unsigned char key[256 / 8], block[512 / 8], *buffer, *dst;
+   unsigned char key[512 / 8], block[512 / 8], *buffer, *dst;
    int eof_allowed;
    unsigned base, left, bytes_read;
    char const *error;

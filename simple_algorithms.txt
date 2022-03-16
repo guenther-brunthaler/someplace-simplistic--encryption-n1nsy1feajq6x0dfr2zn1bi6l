@@ -1,14 +1,14 @@
 Simple Cryptographic Algorithms
 ===============================
 Guenther Brunthaler
-v2021.351
+v2022.70
 
 
 Complexity is said to be the enemy of security.
 
 This is true. Many theoretically perfectly safe implementations have successfully been attacked in practice due to bugs.
 
-The likelihood for bugs, security-relevant or otherwise, increases with the complexity of the code as well as its size.
+The likelihood for bugs, security-relevant or otherwise, increases with the complexity of the code as well as with its size.
 
 Both issues can be tackled by modularization, but modularization has its own issues and is limited by the basic complexity of the algorithm.
 
@@ -66,9 +66,9 @@ However, nothing in the structure of Treyfer forbids to increase the block size 
 
 I therefore increase the block size to 512 bits, requiring 2**256 plaintext-ciphertext pairs for a successful slide attack which is infeasible.
 
-I also increase to key size to 256 bit, because longer keys are not required even when being attacked with quantum computers.
+I also increase to key size to 512 bit. Originally I considered increasing it just to 256 bit, because longer keys are not required even when being attacked with quantum computers. However, much in the design of the algorithm exploits the fact that the block size is the same as the key size. So the key is 512 bit also. If necessary, it is always possible to stretch a 256 bit key to 512 bit using various methods.
 
-Treyfer will be run in CFB mode rather than OFB mode, because OFB mode might be susceptible for unknown fixed points in the mathematical function represented by the algorithm, which can never be ruled out. CFB combines the encryption with the data to be encrypted, so fixed points will not matter much or at least certainly matter less.
+Treyfer will be run in CFB mode rather than OFB mode, because OFB mode might be susceptible for unknown fixed points in the mathematical function represented by the algorithm, which can never be ruled out. CFB combines the encryption with the data to be encrypted, so fixed points will not matter much or at least matter less.
 
 TEA used a block size of 64 bit and a key size of 128 bit. The latter would be too insecure against quantum computer attacks, and the short blocks size is probably also a weakness.
 
@@ -81,3 +81,14 @@ Therefore I prefer using the original algorithm knowing that it is unsafe, not f
 Also, we are talking stream encryption here.
 
 If I needed a random-access encryption such as for disk encryption, the combination of Treyfer and XXTEA would seen more attractive, perhaps also adding Chacha20 which is considered strong (although I have some doubts about it).
+
+ChaCha20 ist a beautiful algorithm though, and not too complicated to implement. Perhaps I will eventually implement it as an additional encryption layer. However, its code size, although small compared to other state-of-the-art encryption algorithms, is still much larger than that of the beforementioned algorithms.
+
+One algorithm still missing is a suitable string-to-key conversion procedure. Both ARC4 and TREYFER require quite random-looking keys for (reasonably) safe operation, and this human-provided pass phrases are not optimal and need preprocessing.
+
+My idea is to use multiple iterations of TREYFER-512-CBC-MAC in order to convert a pass phrase into a 512 bit key.
+
+We the interations with a key of all 0x55 octets and calculate the CBC-MAC over a message containing the pass phrase. The resulting MAC is then used as the key of the next iteration, which is calculated over the same kind of message. The MAC after the last iteration is the output of the algorithm which shall be used as a key.
+
+The message over which the MAC shall be calculated consists of an initial 512 bit block containing the size of the pass phrase as a big-endian base-256 encoded number. This block is XORed with a iteration counter (starting at 0) encoded as a little-endian base-256 number. This initial block is followed by the pass phrase which is padded (if necessary) with trailig 0xaa octets into a multiple of 512 bits.
+

@@ -1,0 +1,40 @@
+#! /bin/sh
+# v2022.82
+exec awk -f - << 'EO_AWK'
+
+function sieve(s, max    , i, j) {
+	for (i= 2; i <= max; ++i) s[i]= 1
+	for (i= 0; i <= max; ++i) {
+		if (!s[i]) continue
+		for (j= i + i; j <= max; j+= i) s[j]= 0
+	}
+}
+
+function main(    p, i, j, k, n, s, c, q, ip) {
+	sieve(p, n= 256)
+	for (i= j= 0; i <= n; ++i) {
+		if (p[i]) p[j++]= i
+	}
+	c= p[j - 1] + 2
+	while (j < n) {
+		s= int(sqrt(c)); ip= 1
+		for (k= 0; (q= p[k]) <= s; ++k) {
+			if (c % q == 0) {
+				ip= 0
+				break
+			}
+		}
+		if (ip) p[j++]= c
+		c+= 2
+	}
+	for (i= j= 0; i < n; ++i) {
+		if (i) if (j) printf " "; else print ""
+		printf "%s", p[i] % 256
+		if (++j == 16) j= 0
+	}
+	if (!j) print ""
+}
+
+BEGIN{main()}
+
+EO_AWK

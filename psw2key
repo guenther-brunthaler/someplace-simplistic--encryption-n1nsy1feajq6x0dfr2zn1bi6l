@@ -1,0 +1,101 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2022.116
+
+Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - normalize whitespace and remove CR/LF from a password file
+|
+Usage: $APP [ <options> ] [ -- ] < <input_lines> > <output_string>|
+|
+$APP first removes all ASCII LF, ASCII CR and ASCII VT characters from the |
+text read from standard input.|
+|
+Then it replaces all ASCII HT characters with an ASCII SPACE.|
+|
+Next it replaces any runs of ASCII SPACE by a single ASCII SPACE.|
+|
+Finally, it removes any leading or trailing ASCII space from the result |
+before writing it to standard output (without any trailing newline |
+character).|
+|
+$APP can be used to get rid of the trailing newline character which is |
+usually not intended to be actually part of the pass phrase. It is also |
+useful for concatenating a single password back together which has been split |
+into several different password piece files, every one containing a trailing |
+newline.|
+|
+|
+Options supported:|
+|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+|
+|
+$APP does not try to convert the character encoding in any way and assumes |
+the used character set is ASCII or a superset of ASCII (such as UTF-8 or |
+LATIN1).|
+|
+For maximizing platform compatibility, it is recommended to encode pass |
+phrases as UTF-8, preferably normalized as NFKC (on Linux/Windows-based |
+operating systems) or NFKD (Apple operating systems).|
+|
+For cross platform exchanges of encrypted messages, either prefer NFKC over |
+NFKD in pass phrases, don't touch the normalization form (i.e. ignore the |
+problem), or forbid non-ASCII characters in pass phrases (ASCII characters |
+are unaffected by normalization).|
+|
+If decryption should fail due to different normalization forms, simply try |
+both variants before giving up decryption.|
+|
+If pass phrases have been entered blindly, also consider the possibility of |
+unexpected keyboard mappings in effect. For instance, "y" and "z" characters |
+will have been exchanged on German keyboards in an initramfs environment |
+unless a matching German keyboard translation map has already loaded.|
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+{
+	tr -d '\n\r\v' | tr -s '\t' ' '
+	echo
+} | sed 's/^ //; s/ $//' | tr -d '\n'

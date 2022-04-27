@@ -1,0 +1,10 @@
+#! /bin/sh
+: ${1:?file into which to save the entered password}
+test ! -e "$1" \
+&& test -d "`dirname -- "$1"`" \
+&& > "$1" \
+&& chmod 600 -- "$1" \
+&& printf "Pass phrase (input not shown)? " \
+&& (trap 'stty echo' 0 && stty -echo && head -n1 > "$1") \
+&& echo \
+|| echo "Failure!" >& 2

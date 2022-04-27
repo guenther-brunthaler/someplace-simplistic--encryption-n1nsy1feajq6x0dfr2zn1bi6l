@@ -1,0 +1,86 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2022.116
+
+Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - POSIX shell/AWK implementation of reversing the order of decimal |
+values|
+|
+Usage: $APP [ <options> ] [ -- ] < <input_stream>|
+|
+$APP reads a sequence of ASCII decimal numbers (separated by whitespace) |
+from standard input.|
+|
+It then reverses the order of the numbers read, writing the reversed sequence |
+to standard output as the result (also as ASCII decimal numbers).|
+|
+|
+Options supported:|
+|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+awk -v failure=`false || echo $?` -f /dev/fd/5 5<< 'EOF'
+
+# Globals: i, n, d[n], oitems, oline.
+
+BEGIN {n= 0}
+
+{
+	for (i= 1; i <= NF; ++i) d[n++]= $i
+}
+
+END {
+	while (n) emit(d[--n])
+	if (oitems) print oline
+}
+
+function emit(val) {
+	if (oitems == 20) { print oline; oitems= 0 }
+	oline= oitems++ ? oline " " val : val
+}
+
+EOF

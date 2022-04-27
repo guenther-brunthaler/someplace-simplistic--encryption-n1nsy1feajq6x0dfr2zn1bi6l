@@ -1,0 +1,81 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2022.116
+
+Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - POSIX shell/AWK implementation of reversing the order of binary octets|
+|
+Usage: $APP [ <options> ] [ -- ] < <input_stream>|
+|
+$APP reads binary octet data (octets are 8-bit bytes) from standard input, |
+reverses the sequential order of the octets, and writes the result to |
+standard output.|
+|
+|
+Options supported:|
+|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+|
+|
+$APP is typically used to help putting information like a short compressed |
+tar archive at the end of a file or block device. This allows effectively |
+parsing the data from behind, detecting EOF by means of the archive rather |
+than putting additional size information after the stream at the end of the |
+data volume.|
+|
+Caveat: $APP holds the data entirely in memory during the conversion. $APP is |
+only intended to be used for small pieces of data like disk sectors or short |
+files, not for large archives.|
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+buddy() {
+	bunam=$1; shift
+	sh "$buddy_path/$bunam" ${1+"$@"}
+}
+buddy_path=`readlink -f "$0"`
+buddy_path=`dirname -- "$buddy_path"`
+
+buddy raw2dec | buddy rev10 | buddy dec2raw

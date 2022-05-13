@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2022.133.1
+Version 2022.133.2
 
 Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
 
@@ -73,6 +73,34 @@ seed_warning() {
 Warning: No seed has been specified via option -s and no entropy harvesting |
 helper '$default_saltgen' has been found either. Falling back to /dev/random |
 for obtaining a seed for salt generation.|
+===
+}
+
+MAC_mismatch_message() {
+	cat << ===
+MAC verification mismatch!|
+|
+This means that this message has either been accidentally damaged or that it |
+has maliciously been corrupted by an attacker.|
+|
+The latter is especially dangerous with a stream cipher like the one used to |
+encrypt his message, because an attacker can precisely flip any particular |
+bit of the decrypted message even without knowing the decryption key.|
+|
+The decrypted corrupt data might tell you lies like a wrong banking account |
+number where to transfer funds to. Or it might even crash the application |
+which is trying to open it, implanting a virus into your system.|
+|
+Therefore, it would be dangerous to decrypt this corrupt data file. So we |
+just don't!|
+|
+Instead, try to get a new uncorrupted copy of the encrypted file.|
+|
+Or, if the file is very large and you don't want to transfer it again, ask |
+the sender to send you error correction information for repairing the damage |
+instead. The program "par2" can be used to create such information and use it |
+to repair damaged files. The tool "rdiff" can do the same in a less efficient |
+way. Depending on the situation, "rsync" and "zsync" might also help.|
 ===
 }
 
@@ -225,7 +253,7 @@ case $# in
 			echo D 3072 G 32 T
 		} | buddy rc4csprng10 | buddy dec2raw > "$TD"/mac
 		dd bs=32 count=1 2>& 8 | cmp -s - "$TD"/mac || {
-			echo "MAC of encrypted message is not valid!" >& 2
+			MAC_mismatch_message | show_reflowed >& 2
 			false || exit
 		}
 		exec < "$2"

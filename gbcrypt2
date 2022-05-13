@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2022.116
+Version 2022.133
 
 Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
 
@@ -15,19 +15,20 @@ help() {
 $APP - encrypt data or decrypt and verify it|
 |
 Usage: $APP [ <options> ] [ -- ] <psw_file> < <plaintext> > <ciphertext>.gc2|
-Usage: $APP [ <options> ] [ -- ] <psw_file> <ciphertext>.cg2|
+|
+Usage: $APP [ <options> ] [ -- ] <psw_file> <ciphertext>.cg2 > <plaintext>|
 |
 $APP encrypts or decrypts arbitrary data using the ARCFOUR-drop3072 stream |
 cipher.|
 |
 <psw_file> is the pathname of a file containing a text pass phrase. It is |
 safe to use the same pass phrase for many messages, because $APP will |
-automatically create a salt for every new encryption. $APP will also |
-silently remove any newline characters present in the password file.|
+automatically create a salt for every new encryption. $APP will also silently |
+remove any newline characters present in the password file.|
 |
 The encrypted ciphertext output will consist of a 32-octet (octets are 8-bit |
 bytes) salt, followed by the encrypted data, followed by a 32-bit message |
-authentication code (MAC).
+authentication code (MAC).|
 |
 Nothing in the contents of the encrypted file gives any clue (except for the |
 length) about its format or contents. This is intentional in order to |
@@ -38,28 +39,27 @@ files.|
 Encryption works on streams of arbitrary size, but decryption needs an actual |
 file because it needs to be read twice: First for the MAC verification, next |
 for the actual decryption. Only after MAC verification it is safe to assume |
-that the encrypted data has not been maliciously modified.
+that the encrypted data has not been maliciously modified.|
 |
 Options supported:|
 |
--s <seed_file>: Use the seed from this file rather than generating one.
--V: Show version information and exit.|
--h: Display this help and exit.|
-
+-s <seed_file>: Use the seed from this file rather than generating one.|
+-V: Show version information and exit. -h: Display this help and exit.|
+|
 $APP implements version 2 of the author's simplistic portable encryption |
 scheme. It is simple enough to be implemented entirely using POSIX-defined |
-command line utilities, at least for decryption. |
+command line utilities, at least for decryption.|
 |
 Encryption needs a 32-octet salt, which will be derived from a seed which |
-must never repeat.
+must never repeat.|
 |
 The seed can be specified directly via option -s, which is useful when using |
-a counter- or date-based nonce.
+a counter- or date-based nonce.|
 |
-Otherwise, $APP attempts to invoke an external helper script '$saltgen' with |
-argument of 32 which is expected to return high-quality true-random octets. |
-If no such utility is found either, $APP reads 32 octets from /dev/random as |
-a last resort.|
+Otherwise, $APP attempts to invoke an external helper script |
+'$default_saltgen' with argument of 32 which is expected to return |
+high-quality true-random octets. If no such utility is found either, $APP |
+reads 32 octets from /dev/random as a last resort.|
 |
 Note that the seed is not used directly as the salt, but it will rather be |
 hashed into 32 octets by $APP as the salt. Therefore it does not really |
@@ -71,8 +71,8 @@ APP=${0##*/}
 seed_warning() {
 	cat << ===
 Warning: No seed has been specified via option -s and no entropy harvesting |
-helper '$default_saltgen' has been found either. Falling back to /dev/random for |
-obtaining a seed for salt generation.|
+helper '$default_saltgen' has been found either. Falling back to /dev/random |
+for obtaining a seed for salt generation.|
 ===
 }
 

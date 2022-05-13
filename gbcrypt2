@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2022.133.2
+Version 2022.133.3
 
 Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
 
@@ -12,7 +12,7 @@ Distribution is permitted under the terms of the GPLv3.
 
 help() {
 	cat << ===
-$APP - encrypt data or decrypt and verify it|
+$APP - encrypt and integrity-protect data or decrypt and verify it|
 |
 Usage: $APP [ <options> ] [ -- ] <psw_file> < <plaintext> > <ciphertext>.gc2|
 |
@@ -78,10 +78,10 @@ for obtaining a seed for salt generation.|
 
 MAC_mismatch_message() {
 	cat << ===
-MAC verification mismatch!|
+MAC verification failure!|
 |
 This means that this message has either been accidentally damaged or that it |
-has maliciously been corrupted by an attacker.|
+has been maliciously corrupted by an attacker.|
 |
 The latter is especially dangerous with a stream cipher like the one used to |
 encrypt his message, because an attacker can precisely flip any particular |

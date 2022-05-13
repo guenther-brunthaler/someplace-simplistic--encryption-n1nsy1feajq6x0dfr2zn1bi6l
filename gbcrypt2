@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2022.133
+Version 2022.133.1
 
 Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
 
@@ -192,6 +192,8 @@ esac
 for k in once_key mac_key
 do
 	{
+		cat < "$TD"/salt10
+		cat < "$TD"/longterm_key | buddy raw2dec
 		cat < "$TD"/salt10
 		printf $k | buddy raw2dec
 		cat < "$TD"/salt10

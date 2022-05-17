@@ -1,0 +1,124 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2021.355
+
+Copyright (c) 2021 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - Convert a normalized text pass phrase into a 256 octet pseudorandom |
+binary key|
+|
+Usage: $APP [ <options> ] [ -- ] < <somefile>.psw > <somefile>.key|
+|
+$APP reads a pass-phrase from standard input and and transforms it into 256 |
+pseudorandom octets (binary 8-bit bytes) written to standard output.|
+|
+The term 'pseudorandom' means that the output will look like binary random |
+octets, but they are not random at all and rather completely determined by |
+the input pass-phrase in a non-obvious way.|
+|
+In order to achieve platform-independent encryption, the pass-phrase should |
+have been encoded as UTF-8 NFKC with newline characters (or any other control |
+characters) stripped.|
+|
+NFKC is the UNICODE normalization form 'KC', which consists of compatibility |
+decomposition, followed by canonical composition.|
+|
+The 'psw2nbt' utility can be used to convert operating system dependent |
+locale-encoded text into this kind of normalized text. It also strips any |
+newline character from the end of the pass phrase.|
+|
+The output of $APP will have the same statistical properties as a binary |
+random key. Which means it can be used as a suitable key for e.g. the ARCFOUR |
+encryption algorithm which requires those properties of its keys for secure |
+encryption.|
+|
+The transformation applied to the normalized UNICODE text in order to derive |
+the binary output of $APP consists of 12 iterations of the following |
+algorithm:|
+|
+k[0] := ""|
+k[i] := arc4cprng(drop := 3072, key := k[i - 1] ++ passphrase, count := 256)|
+|
+where|
+|
+passphrase: The normalized passphrase, read as binary data from standard |
+input (only once, not for every iteration of the algorithm).|
+|
+"++": binary string concatentation operator.|
+|
+k[12]: The result of $APP written to standard output.|
+|
+arc4cprng: the ARCFOUR pseudo-random generator (the result of encrypting an |
+infinite sequence of binary zero octets), emitting the first 'count' octets |
+after dropping the initial generated 'drop' octets.|
+|
+Options:|
+|
+-V: Show version information and exit. -h: Display this help and exit.|
+|
+The reason why 12 iterations have been chosen is the fact that the 'drop' |
+parameter of 3072 octets recommended by literature equals 12 iterations over |
+ARCFOUR's s-box. Hopefully this number of iterations will have a similar |
+beneficial effect on the string-to-key conversion as the 'drop' parameter has |
+on normal ARCFOUR operation.|
+===
+}
+APP=${0##*/}
+
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+while getopts hV opt
+do
+	case $opt in
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+# We avoid the -An option of "of" because at least some BusyBox
+# implementations of "od" do not support it.
+od -vt u1 | awk -f /dev/fd/5 5<< 'EOF'
+
+# Globals: i, oitems, oline.
+
+{ for (i= 2; i <= NF; ++i) emit($i) }
+
+function emit(val) {
+	if (oitems == 20) { print oline; oitems= 0 }
+	oline= oitems++ ? oline " " val : val
+}
+
+END {
+	if (oitems) print oline
+}
+
+EOF

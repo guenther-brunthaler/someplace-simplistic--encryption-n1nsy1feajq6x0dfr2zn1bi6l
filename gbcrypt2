@@ -1,0 +1,302 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2022.134
+Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - encrypt and integrity-protect data or decrypt and verify it|
+|
+Usage (encryption): $APP [ <options> ] [ -- ] <psw_file> < <plaintext> > |
+<ciphertext>.gc2|
+|
+Usage (decryption): $APP [ <options> ] [ -- ] <psw_file> <ciphertext>.cg2 > |
+<plaintext>|
+|
+$APP encrypts or decrypts arbitrary data using the ARCFOUR-drop3072 stream |
+cipher.|
+|
+<psw_file> is the pathname of a file containing a text pass phrase. It is |
+safe to use the same pass phrase for many messages, because $APP will |
+automatically create and apply a salt for every new encryption. Any newline |
+characters present in <psw_file> will be skipped when $APP reads its contents |
+as if they were not there. The pass phrase will not be used directly as the |
+encryption key which would be dangerous with ARCFOUR. Instead, it will be |
+subjected to a proper key derivation function.|
+|
+The encrypted ciphertext output will consist of a 32-octet (octets are 8-bit |
+bytes) salt, followed by the encrypted data, followed by a 32-octet (256 bit) |
+message authentication code (MAC).|
+|
+Nothing in the contents of the encrypted file gives any clue (except for the |
+length) about its format or contents. This is intentional in order to |
+maximize privacy. However, in case the encryption format should be made |
+known, it is recommended to use a filename extension '.gc2' for the encrypted |
+files.|
+|
+Encryption works on streams of arbitrary size, but decryption needs an actual |
+file because it needs to be read twice: First for the MAC verification, next |
+for the actual decryption. Only after MAC verification it is safe to assume |
+that the encrypted data has not been maliciously modified.|
+|
+Options supported:|
+|
+-s <seed_file>: Use the seed from this file rather than generating one.|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+|
+$APP implements version 2 of the author's simplistic portable encryption |
+scheme. It is simple enough to be implemented entirely using POSIX-defined |
+command line utilities, at least for decryption.|
+|
+Encryption needs a 32-octet salt, which will be derived from a seed which |
+must never repeat.|
+|
+The seed can be specified directly via option -s, which is useful when using |
+a counter- or date-based nonce.|
+|
+Otherwise, $APP attempts to invoke an external helper script |
+'$default_saltgen' with argument of 32 which is expected to return |
+high-quality true-random octets. If no such utility is found either, $APP |
+reads 32 octets from /dev/random as a last resort.|
+|
+Note that any <seed_file> is not used directly as the salt, but would rather |
+be hashed into 32 octets by $APP as the salt. Therefore it does not really |
+matter what size of format <seed_file> has, as long as its contents will |
+never repeat. For instance, a file containing a simple counter which is |
+incremented before every encryption would be fine as <seed_file>. The output |
+of "date" written to a file would also do.|
+|
+Neither <psw_file> nor <seed_file> need to be regular files. They can also be |
+special files like FIFOs or file descriptors in /dev/fd/*.|
+===
+}
+APP=${0##*/}
+
+seed_warning() {
+	cat << ===
+Warning: No seed has been specified via option -s and no entropy harvesting |
+helper '$default_saltgen' has been found either. Falling back to /dev/random |
+for obtaining a seed for salt generation.|
+===
+}
+
+MAC_mismatch_message() {
+	cat << ===
+MAC verification failure!|
+|
+This means that this message has either been accidentally damaged or that it |
+has been maliciously corrupted by an attacker.|
+|
+The latter is especially dangerous with a stream cipher like the one used to |
+encrypt his message, because an attacker can precisely flip any particular |
+bit of the decrypted message even without knowing the decryption key.|
+|
+The decrypted corrupt data might tell you lies like a wrong banking account |
+number where to transfer funds to. Or it might even crash the application |
+which is trying to open it, implanting a virus into your system.|
+|
+Therefore, it would be dangerous to decrypt this corrupt data file. So we |
+just don't!|
+|
+Instead, try to get a new uncorrupted copy of the encrypted file.|
+|
+Or, if the file is very large and you don't want to transfer it again, ask |
+the sender to send you error correction information for repairing the damage |
+instead. The program "par2" can be used to create such information and use it |
+to repair damaged files. The tool "rdiff" can do the same in a less efficient |
+way. Depending on the situation, "rsync" and "zsync" might also help.|
+===
+}
+
+default_saltgen=keygen-octets-by-harvesting-entropy
+buddies='psw2key key2prand raw2dec rc4csprng10 xor10 dec2raw'
+DEBUG=false
+
+set -e
+cleanup() {
+	rc=$?
+	if test "$helper"
+	then
+		kill $helper || :
+		wait $helper || :
+	fi
+	test "$TD" && test "$DEBUG" != true && rm -rf -- "$TD"
+	test $rc = 0 || echo "\"$0\" failed!" >& 2
+}
+TD=
+helper=
+trap cleanup 0
+trap 'exit $?' INT TERM QUIT HUP
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+show_reflowed() {
+	sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+}
+
+exit_help() {
+	help | show_reflowed
+	echo; exit_version "$@"
+}
+
+seed_file=
+while getopts s:hV opt
+do
+	case $opt in
+		s) seed_file=$OPTARG;;
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+exec 8> /dev/null
+case $# in
+	1 | 2) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+buddy_path=`readlink -f "$0"`
+buddy_path=`dirname -- "$buddy_path"`
+
+for b in $buddies
+do
+	test -f "$buddy_path/$b"
+done
+
+buddy() {
+	bunam=$1; shift
+	sh "$buddy_path/$bunam" ${1+"$@"}
+}
+
+case $DEBUG in
+	true) TD=debug && rm -rf $TD && mkdir $TD;;
+	*) TD=`mktemp -d -- "${TMPDIR:-/tmp}/${0##*/}".XXXXXXXXXX`
+esac
+
+case $# in
+	1)
+		if test -z "$seed_file"
+		then
+			seed_file=$TD/seed
+			if command -v "$default_saltgen" >& 8 2>& 1
+			then
+				"$default_saltgen" 32
+			else
+				seed_warning | show_reflowed >& 2
+				dd if=/dev/random bs=1 count=32 2>& 8
+			fi > "$seed_file"
+		fi
+esac
+
+test -r "$1"
+buddy psw2key < "$1" | buddy key2prand > "$TD"/longterm_key
+
+case $# in
+	1) 	case $DEBUG in
+			true) : | openssl sha256 -binary;;
+			*)
+			        test -r "$seed_file"
+				{
+					buddy key2prand | buddy raw2dec
+					echo D 3072 G 32 T
+				} < "$seed_file" \
+				| buddy rc4csprng10 | buddy dec2raw
+		esac | tee -- "$TD"/salt;;
+	2)
+		test -f "$2"; test -r "$2"
+		exec < "$2"
+		dd bs=32 count=1 > "$TD"/salt 2>& 8
+		;;
+	*) false
+esac
+
+{
+	buddy raw2dec < "$TD"/salt
+	echo D 3072 G 256 T
+} | buddy rc4csprng10 > "$TD"/salt10
+for k in once_key mac_key
+do
+	{
+		cat < "$TD"/salt10
+		cat < "$TD"/longterm_key | buddy raw2dec
+		cat < "$TD"/salt10
+		printf $k | buddy raw2dec
+		cat < "$TD"/salt10
+	} > "$TD"/${k}10
+done
+
+blkxfer() {
+	case $nb in
+		0) ;;
+		*) dd bs=$bsz count=$nb 2>& 8
+	esac
+	case $r in
+		0) ;;
+		*) dd bs=$r count=1 2>& 8
+	esac
+}
+bsz=8192
+
+case $# in
+	2)
+		clen=`LC_ALL=C ls -ln -- "$2" | awk '{print $5}'`
+		test "$clen" -ge 64
+		plen=`expr $clen - 64 || :`
+		nb=`expr $plen / $bsz || :`
+		r=`expr $plen - $nb "*" $bsz || :`
+		{
+			cat < "$TD"/mac_key10
+			blkxfer | buddy raw2dec
+			echo D 3072 G 32 T
+		} | buddy rc4csprng10 | buddy dec2raw > "$TD"/mac
+		dd bs=32 count=1 2>& 8 | cmp -s - "$TD"/mac || {
+			MAC_mismatch_message | show_reflowed >& 2
+			false || exit
+		}
+		exec < "$2"
+		dd bs=32 count=1 2>& 8 | cmp -s - "$TD"/salt || exit
+esac
+
+{
+	cat < "$TD"/once_key10
+	echo "D 3072 T"
+	case $# in
+		1) buddy raw2dec;;
+		2) blkxfer | buddy raw2dec;;
+		*) false
+	esac
+} | buddy rc4csprng10 | {
+	case $# in
+		1)
+			cksummer() {
+				{
+					cat < "$TD"/mac_key10
+					cat
+					echo D 3072 G 32 T
+				} | buddy rc4csprng10
+			}
+			mkfifo -- "$TD"/fifo
+			cksummer < "$TD"/fifo > "$TD"/mac10 & helper=$!
+			buddy xor10 | tee -- "$TD"/fifo
+			pid=$helper; helper=
+			wait $pid
+			cat < "$TD"/mac10
+			;;
+		2) buddy xor10
+	esac
+} | buddy dec2raw

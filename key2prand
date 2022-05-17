@@ -1,0 +1,107 @@
+#! /bin/sh
+version() {
+	cat << ===
+Version 2022.116
+
+Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
+
+This script is free software.
+Distribution is permitted under the terms of the GPLv3.
+===
+}
+
+help() {
+	cat << ===
+$APP - transform a key into same-length pseudorandom binary sequence|
+|
+Usage: $APP [ <options> ] [ -- ] < <pass_phrase> > <binary_key>|
+|
+$APP reads a cryptographic key which might contain noticable patterns or |
+repetitions (such as a human-provided pass phrase) from standard input and |
+transforms it into a random-looking octet sequence which it then writes to |
+standard output.|
+|
+Any newline characters which are not actually considered to be part of the |
+pass phrase should have been removed from the key already, which of course |
+only matters if the key is actually made of text and is not pure binary |
+data.|
+|
+Use $APP for preprocessing low-entropy key material for cryptographic |
+algorithms like ARCFOUR which allow variable-length keys but require it to |
+look like random binary data for secure usage.|
+|
+$APP performs 32 iterations (adjustable) of the following algorithm to the |
+key, obtaining a new transform key after every iteration:|
+|
+The first iteration uses the original key as the initial transform key.|
+|
+Every iteration uses the current transform key in order to encrypt the |
+original key using the ARCFOUR-drop3072 stream cipher into the next |
+transform key.|
+|
+The transform key at the end of the last iteration is the result of the |
+algorithm.|
+|
+|
+Options supported:|
+|
+-i <iterations>: Number of iterations to use (default: 32)|
+-V: Show version information and exit.|
+-h: Display this help and exit.|
+===
+}
+APP=${0##*/}
+
+set -e
+cleanup() {
+	rc=$?
+	test "$TD" && rm -rf -- "$TD"
+	test $rc = 0 || echo "\"$0\" failed!" >& 2
+}
+TD=
+trap cleanup 0
+trap 'exit $?' INT TERM QUIT HUP
+
+show() {
+	fold -sw 66
+}
+
+exit_version() {
+	version | show; exit $1
+}
+
+exit_help() {
+	help | sed 's/ |$/ /' | tr -d '\n' | tr '|' '\n' | show
+	echo; exit_version "$@"
+}
+
+iterations=32
+while getopts i:hV opt
+do
+	case $opt in
+		i) iterations=$OPTARG;;
+		h) exit_help;;
+		V) exit_version;;
+		*) false || exit
+	esac
+done
+shift `expr $OPTIND - 1 || :`
+
+case $# in
+	0) ;;
+	*) exit_help `false || echo $?` >& 2
+esac
+
+TD=`mktemp -d -- "${TMPDIR:-/tmp}/${0##*/}".XXXXXXXXXX`
+raw2dec | tee -- "$TD"/xfrm_key > "$TD"/orig_key
+while :
+do
+	{
+		cat < "$TD"/xfrm_key
+		echo D 3072 T
+		cat < "$TD"/orig_key
+	} | rc4csprng10 | xor10 > "$TD"/newkey
+	mv -- "$TD"/newkey "$TD"/xfrm_key
+	iterations=`expr $iterations - 1` || break
+done
+dec2raw < "$TD"/xfrm_key

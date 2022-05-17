@@ -1,8 +1,253 @@
-`rc4sxs-crypt` - abuse ARCFOUR for many things
+`simpenc` - Simplistic but reliable encryption
 ==============================================
 Guenther Brunthaler
 
-This project currently provides the following utilities:
+This project shall provide serious encryption by combining 
+riculously simple algorithms only in clever ways.
+
+Many of them are provided as pure and portable POSIX shell 
+scripts, making use only of the utilities provided by POSIX (most 
+importantly `awk`) for their core funtionality.
+
+This means you don't need a C compiler, Python/Perl/Ruby 
+interpreter or anything else sophisticated to be installed in 
+order to use the utilities.
+
+In particular, it is intended that the scripts work in a 
+BusyBox-based initramfs environment without additional utilties 
+installed. They should work on BSD too, but I have not tested 
+this yet.
+
+Because shell scripts are slow, they are not intended to encrypt 
+large volumes of data. (Even though they should be able to do so, 
+giving them enough processing time.)
+
+Instead, they are intended to be used to encrypt other things 
+like crypto-unlocking scripts, SSH-keys, LUKS-Passwords, dmcrypt 
+table entries ready for loading into the Linux device mapper or 
+similar.
+
+Think of the utilities as a poor man's version of "gpg 
+--symmetric" or "openssl enc" without needing to install those 
+utilities and all of their library dependencies.
+
+The author is a strong believer in the statement that complexity 
+is the death of security.
+
+I think that it is safer to combine algorithms which are too 
+simple to contain sophisticated backdoors planted there by their 
+designers rather than using obviously stronger algorithms which 
+are too complicated to grasp how they work an what they are 
+doing.
+
+It is better to work around known weaknesses in algorithms 
+because they are too simple, rather than trusting in the security 
+of complex algorithms one cannot fully understand.
+
+Only few known algorithms known to me meet the above criteria and 
+have been selected for inclusion within this project:
+
+* ARCFOUR
+
+* TREYFER
+
+* ChaCha20
+
+Not all of them are finished implementing yet or are not 
+production-ready yet. Those are the files in the 
+`wip`-subdirectory. Ignore them for the time being.
+
+This project currently provides the following production-ready 
+utilities:
+
+* `gbcrypt2`: This is the primary front-end script for the 
+  encryption solution. It provides encryption as well as 
+  integrity protection.
++
+--
+This script makes use of all the other helper scripts described 
+later in order to provide a one-stop shop for secure single-file 
+symmetric encryption.
+
+Typically, it is used like this:
+
+----
+$ tar -cz some_private_files/ | ./gbcrypt2 encryption.psw > some_private_files.gc2
+----
+
+for encrypting files and like that:
+
+----
+$ ./gbcrypt2 encryption.psw some_private_files.gc2 | tar -xvz
+----
+
+for decrypting them later.
+
+Note that the files encrypted by `gbcrypt2` do not have any 
+format header. Their contents always looks like random data. This 
+is intentional in order to provide deniability in situations 
+where the usage of encryption is forbidden but still needed.
+
+It is therefore recommended to append the file extension `.gc2` 
+to the encrypted files in situations where no deniability is 
+needed in order to make it clear that the files have been 
+encrypted using `gbcrypt2`.
+
+Future evolutions of the script will be called "`gbcrypt3`", 
+"`gbcrypt4`" etc. and will use file extensions "`.gc3`", "`.gc4`" 
+etc.
+--
+
+* `enter_psw`: A very simple helper script for blindly (i.e. 
+  without echoing it visibly on the screen) entering a pass 
+  phrase and store it into a password file. Other than most text 
+  editors `enter_psw` won't use any temporary files or leave any 
+  traces of the password except for the file which it created. 
+  `enter_psw` is typically used before `gbcrypt2` in order to 
+  create the password file required by the latter utility.
++
+--
+Typical usage:
+
+----
+$ ./enter_psw encryption.psw
+$ ./gbcrypt2 encryption.psw < plaintext.tgz > ciphertext.tgz.gc2
+----
+--
+
+* rev_octets: Reverses the order of bytes in a file. Only 
+  intended for small amounts of data like a disk sector. It is 
+  intended to be used for storing variable-sized data into the 
+  last sector or sectors of a block device.
++
+--
+Typical usage:
+
+----
+$ d=/dev/sda # Last sector must not be part of any partition!
+$ f=header_backup.tgz # Archive to be embedded into last sector.
+$ offset=$((`blockdev --getsize $d` - 1))
+$ dd if=$d bs=512 count=1 skip=$offset | ./rev_octets > lastrev.blk
+$ dd if=$f of=lastrev.blk conv=notrunc
+$ ./rev_octets < lastrev.blk | dd of=$d bs=512 count=1 seek=$offset
+----
+
+for overwriting the last bytes of the last sector with the 
+archive to be embedded, and later
+
+----
+$ d=/dev/sda # Last sector must not be part of any partition!
+$ offset=$((`blockdev --getsize $d` - 1))
+$ dd if=$d bs=512 count=1 skip=$offset | ./rev_octets | tar -xvz
+----
+
+in order to extract the contents of the archive stored in the 
+last sector.
+--
+
+* psw2key: Helper script used by `gbcrypt2`. It removes the 
+  trailing newline from the contents of a password file and 
+  normalizes other whitespace contained within the file. The 
+  result is a single password string which can be used as a 
+  cryptographic key (but will still be made of text).
+
+* key2prand: Helper script used by `gbcrypt2`. It converts a 
+  cryptographic text-based password string into a binary key of 
+  the same byte length. It basically encrypts the password using 
+  itself as the initial key in multiple iterations. It is 
+  basically a length-preserving hashing function. It is used to 
+  convert a text pass phrase into a binary key which can be 
+  safely used by the ARCFOUR algorithm. ARCFOUR should only be 
+  used with random-looking binary keys. This script can convert a 
+  text pass phrase into a suitable such key.
+
+* raw2dec: Helper script used by `gbcrypt2`. This script converts 
+  binary data bytes into the corresponding decimal ASCII codes. 
+  For ease of implementation most of the other helper scripts do 
+  not process binary data but only ASCII code numbers. Such 
+  scripts are named with a `10`-suffix to indicate they process 
+  only ASCII decimal numbers.
+
+* dec2raw: Helper script used by `gbcrypt2`. This undoes the 
+  effect of `raw2dec' and converts ASCII decimal codes back into 
+  the corresponding binary bytes. The cryptographic pipelines 
+  used by most of the scripts consist of an initial conversion of 
+  binary data into decimal numbers, then multiple processing 
+  steps operating only on decimal numbers, and finally this 
+  script for converting the ASCII decimal result back into binary 
+  bytes.
+
+* rc4csprng10: Helper script used by `gbcrypt2`. This implements 
+  the ARCFOUR CSPRNG algorithm. It only operates on decimal 
+  numbers because it is mostly written in `awk` which provides no 
+  means of binary input/output. It does not actually encrypt 
+  anything, but rather emits a pseudorandom output stream of 
+  decimal values. It supports interleaving its own output with 
+  another stream of decimal values read from its standard input, 
+  allowing the result to be fed into `xor10` for actual 
+  encryption.
+
+* xor10: Helper script used by `gbcrypt2`. It receives pairs of 
+  decimal values as input and replaces every pair by the result 
+  of bitwise XORing both values. It is typically used to combine 
+  the output of `rc4csprng10` with some plaintext to produce the 
+  actual ciphertext.
+
+* rev10: Helper script used by `rev_octets`. It reverses a 
+  sequence of decimal numbers read from standard input.
+
+The following utilities are production-ready, but are not used 
+for anything right now.
+
+They have been stowed away in the `wip`-subdirectory until they 
+are actually required to be installed for one of the primary 
+utilities to work.
+
+* mod256add10: Receives pairs of decimal values as input and 
+  replaces every pair with the sum of their values, reduced 
+  modulo 256. This script could be used instead of `xor10` for 
+  combining the result of `rc4csprng10` with the plaintext to 
+  create ciphertext.
+
+* mod256sub10: Does the inverse of `mod256add10`. If the latter 
+  script was used with `rc4csprng10` for encrypition, then this 
+  script must be used for decryption. (The other way around would 
+  also be possible.)
+
+* psw2nbt: A more versatile and powerful version of `psw2key`. 
+  It does not just strip newlines, but also converts and 
+  normalizes the character encoding. In order to do so, it needs 
+  big helper utilities like `iconv` or even `uconv` to implement 
+  the actual conversions. This means a large installation 
+  footprint, which is the main reason this script has been 
+  abandoned in favor of the much more primitive `psw2key`. 
+  However, the script still works, and guarantees 
+  cross-plattform- and cross-locale compatibility of the pass 
+  phrases processed by it.
+
+* rvscyc10: Processes groups of arbitrary but fixed size 
+  containing decimal values, and reverses the order of values 
+  within every group. This script is useful when arguments for a 
+  script like `mod256sub10` need to be in a different order for 
+  decryption as they were with `mod256add10` for encryption. By 
+  cascading multiple instances of `rvscyc10` within a processing 
+  pipeline, any possible re-ordering of arguments within a group 
+  can be achieved.
+
+* sbox10: This was supposed to implement a superior mode of 
+  operation for stream ciphers, compared to the usual XOR. 
+  Unfortunately there is some bug lurking there and it just does 
+  not work as intended.
+
+* treyfer-ecb10: One day this shall run the TREYFER cipher in ECB 
+  mode. Only a stub right now which does not work. Intended to be 
+  the low-level component within a more sophisticated processing 
+  pipeline implementing another mode of operation.
+
+The following utilities are also provided, but are not considered 
+to be production ready.
+
+They are also implemented in C rather than being shell scripts.
 
 * `rc4sxs-crypt` - Encrypts or decrypts standard input with a 
   minimally modified 'ARCFOUR-drop3072' stream cipher in a custom 
@@ -13,6 +258,28 @@ This project currently provides the following utilities:
   pseudo-random generator, as a password-based key derivation 
   function (PBKDF), for MAC calculation, for key stretching, for 
   salt stretching and for salt generation.
++
+--
+This utility basically works and can be used to encrypt large 
+amounts of data quicky. However, it has two drawbacks:
+
+* The slight modification to the original ARCFOUR key setup 
+  procedure makes its encryption result incompatible with the 
+  original ARCFOUR algorithm. This should not affect security, 
+  but results in unnecessary incompatibility. On the other hand, 
+  the new SXS mode of operation will make the encryption result 
+  incompatible anyway.
+
+* It does no key preprocessing on its own. One should use the 
+  `enter_psw`, `psw2key` and `key2prand` scripts in order to 
+  input and preprocess the pass phrases before using the result 
+  as keys suitable for use in `rc4sxs-crypt`.
+
+* It is too low-level. For instance, it requires one-time keys 
+  rather than long-term keys. The user must do all the additional 
+  steps like generating salts and deriving one-time keys from 
+  long-term keys by oneself.
+--
 
 * `treyfer-ofb` - Implements the 'treyfer' block cipher in 'OFB'
   (output feedback) mode, making it into a stream cipher. The
@@ -22,75 +289,46 @@ This project currently provides the following utilities:
   probability that known weaknesses in 'ARCFOUR' can be
   exploited. Unfortunately, 'treyfer' is about 8 times slower
   than 'ARCFOUR'.
++
+--
+The disadvantage of this implementation is its usage of the OFB 
+mode of operation.
 
-Both utilities can display their usage instructions by passing 
-"-h" as the only argument.
+This mode should only be used with ciphers which are known to be 
+cryptographically strong, which should be doubted with TREYFER. 
+The problem here is that OFB basically uses the cipher function 
+as an infinite recursion, producing more pseudorandom output with 
+every recursive invocation. If there is a chance that these 
+recursive applications lose information or if the underlying 
+function has fixed points, the contents of a long pseudorandom 
+stream will become more and more predictable the longer it gets. 
+In the worst case, the pseudorandom stream might deterorate into 
+the repetion of a short cycle length, which would be lethal for 
+security.
 
-The project provided a general-purpose cryptographic utilit
+Another shortcoming is its hard-coded s-box. Altough this s-box 
+has been created as a "nothing up my sleev"-sequence and should 
+in fact be very secure, there is no reason to hard-code it other 
+than sheer comfort (otherwise the user would have needed to 
+provide it).
 
+Despite of those disadvantages, it is still OK to use this 
+utility as an additional encryption layer, such as for 
+strengthening the output generated by `rc4sxs-crypt` even more.
+--
 
-`rc4sxs-crypt` is a tool similar to `sha256sum` but much simpler 
-to implement, while still being reasonably fast.
+* treyfer-cfb-512: This is an actually working and moderately 
+  secure implementation of the basic TREYFER algorithm. It can 
+  encrypt large volumes of data with arbitrary size but provides 
+  no integrity protection. The block size as been increased from 
+  64 to 512 bits which should prevent a known attack against the 
+  original algorithm, but creates the problem that a 512 bit 
+  one-time key is needed as a consequence. It also uses a fixed 
+  s-box which should not effect security, but reduces flexibility 
+  (otherwise the user could have specified one's own s-box).
 
-Actually, it is an encryption utility, but it can be used for 
-hashing by feeding the data to be hashed as a key
-
-While 256 bit is the default, the size of the generated hash can
-in fact be chosen freely. This allows the utility also to be used
-for key stretching or key compaction. By combining this with a
-salt, it can also be used as a password-based key derivation
-function.
-
-The main reason to use it is that the algorithm is easy to
-remember and can thus be reimplemented from memory without access
-to any written specification.
-
-For instance, one might find oneself in a situation without any
-external network access and no source code to a hash algorithm or
-the specification to such. `rc4hash` is still simple enough to be
-implemented from memory, provided 'ARCFOUR' has also been
-remembered.
-
-The idea is to set the contents of the file to be hashed to be
-hashed as the key for the 'ARCFOUR'-variant algorithm.
-
-Then use the first 256 output bits of the 'ARCFOUR'-variant
-pseudorandom stream as a message digest and output it, encoded as
-a base-32 string using a custom alphabet.
-
-The custom base-32 alphabet uses all ASCII upper-case letters and 
-decimal digits, excluding "`0`" (zero), "`1`" (one), "`I`" like 
-India and "`O`" like Oscar. Alternative supported digest output 
-formats are hexadecimal and binary raw bytes.
-
-The 'ARCFOUR'-variant is a minimally modified 'ARCFOUR-drop3072'
-algorithm: Its key setup processes all octets of the key exactly
-once. No key octets are ignored or repeated cyclically.
-
-'ARCFOUR-drop3072' is the original 'ARCFOUR' algorithm modified
-in order to discard its first 3072 generated pseudorandom output
-octets. This prevents some known attacks against the unmodified
-algorithm.
-
-While I a have serious doubts whether this hash algorithm is 
-cryptographically secure, it certainly is fast as hell.
-
-When unsed inside of an encrypted message, i. e. MtE, expecially 
-when combined with `rc4sxs-crypt` (see below), then its 
-cryptographic shortcomings should not be too significant. It 
-would probably be a bad choice for EtM, though.
-
-Use it in situations when you want a very fast hash output that 
-is much larger than that of `cksum` and much faster than 
-`md5sum`.
-
-The code footprint of the implementation is also very small,
-because 'ARCFOUR' is a much simpler algorithm than any known
-cryptographic hash algorithm.
-
-One disadvantage of the algorithm is the large startup overhead
-causing by dropping the initial portion of the output keystream.
-It is therefore only efficient for larger files.
-
-Since the beginning of this project, a couple of additional
-utilties have been added as well:
+* treyfer-hash: This was supposed to use the TREYFER MAC 
+  algorithm for calculating a MAC over a data stream. However, 
+  this has not been implemented yet, and the current version is 
+  basically a stub created from leftovers of a predecessor 
+  version.

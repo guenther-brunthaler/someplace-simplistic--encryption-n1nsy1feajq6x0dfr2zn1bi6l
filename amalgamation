@@ -1,0 +1,56 @@
+#! /bin/sh
+# v2023.19
+set -e
+cleanup() {
+	rc=$?
+	test "$TD" && rm -rf -- "$TD"
+	test $rc = 0 || $pass_rc || echo "\"$0\" failed!" >& 2
+}
+TD=
+pass_rc=false
+trap cleanup 0
+trap 'exit $?' INT TERM QUIT HUP
+TD=`mktemp -d -- "${TMPDIR:-/tmp}/${0##*/}".XXXXXXXXXX`
+
+sep='---snip---'
+while read line
+do
+	case $line in
+		"$sep")
+			main=
+			while :
+			do
+				read sz f
+				case $sz in
+					"$sep") break 2
+				esac
+				test -z "$main" && main=$f
+				b=4096
+				while :
+				do
+					while test $b -gt $sz
+					do
+						if test $b -lt 512
+						then
+							b=1
+						else
+							b=`expr $b / 2`
+						fi
+					done
+					fb=`expr $sz / $b`
+					dd bs=$b count=$fb 2>& 5
+					sz=`expr $sz - $fb \* $b` || break
+				done > "$TD"/$f
+			done 5> /dev/null
+	esac
+done < "$0"
+pass_rc=true
+sh "$TD"/$main ${1+"$@"}
+exit
+
+# Insert the output of all required scripts between the $sep markers below.
+# Be sure the script to be started comes first.
+for f in *; do wc -c $f; cat $f; done
+
+---snip---
+---snip---

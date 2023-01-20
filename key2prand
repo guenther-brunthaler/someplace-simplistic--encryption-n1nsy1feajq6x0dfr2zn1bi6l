@@ -1,9 +1,9 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2022.116
+Version 2023.20
 
-Copyright (c) 2022 Guenther Brunthaler. All rights reserved.
+Copyright (c) 2022-2023 Guenther Brunthaler. All rights reserved.
 
 This script is free software.
 Distribution is permitted under the terms of the GPLv3.
@@ -52,6 +52,8 @@ Options supported:|
 }
 APP=${0##*/}
 
+buddies='raw2dec rc4csprng10 xor10 dec2raw'
+
 set -e
 cleanup() {
 	rc=$?
@@ -92,16 +94,29 @@ case $# in
 	*) exit_help `false || echo $?` >& 2
 esac
 
+buddy_path=`readlink -f "$0"`
+buddy_path=`dirname -- "$buddy_path"`
+
+for b in $buddies
+do
+	test -f "$buddy_path/$b"
+done
+
+buddy() {
+	bunam=$1; shift
+	sh "$buddy_path/$bunam" ${1+"$@"}
+}
+
 TD=`mktemp -d -- "${TMPDIR:-/tmp}/${0##*/}".XXXXXXXXXX`
-raw2dec | tee -- "$TD"/xfrm_key > "$TD"/orig_key
+buddy raw2dec | tee -- "$TD"/xfrm_key > "$TD"/orig_key
 while :
 do
 	{
 		cat < "$TD"/xfrm_key
 		echo D 3072 T
 		cat < "$TD"/orig_key
-	} | rc4csprng10 | xor10 > "$TD"/newkey
+	} | buddy rc4csprng10 | buddy xor10 > "$TD"/newkey
 	mv -- "$TD"/newkey "$TD"/xfrm_key
 	iterations=`expr $iterations - 1` || break
 done
-dec2raw < "$TD"/xfrm_key
+buddy dec2raw < "$TD"/xfrm_key

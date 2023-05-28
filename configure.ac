@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([chacha20], [1.0], [BUG-REPORT-ADDRESS])
+AC_INIT([simplistic_enc], [2023.148.1], [BUG-REPORT-ADDRESS])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([chacha20.c])
 AC_CONFIG_HEADERS([config.h])

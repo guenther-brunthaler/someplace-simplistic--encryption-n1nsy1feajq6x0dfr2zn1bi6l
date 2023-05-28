@@ -1,5 +1,5 @@
 static char version[] = {
-   "{APP} Version 2023.148\n"
+   "{APP} Version 2023.148.1\n"
    "Copyright (c) 2023 Guenther Brunthaler. All rights reserved.\n"
    "\n"
    "This source file is free software.\n"
@@ -53,7 +53,7 @@ static char help[] = {
 #ifdef HAVE_CONFIG_H
    #include "config.h"
 #endif
-#include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -231,42 +231,24 @@ static void read_ck(void *dst, size_t bytes) {
    if (fread(dst, sizeof(char), bytes, stdin) != bytes) raise_read_error();
 }
 
-static void (*deserialize_w32)(
-   uint32_t *restrict out, int n, void const *restrict serialized
-);
-
-static void deserialize_big_endian_w32(
-   uint32_t *restrict out, int n, void const *restrict serialized
-) {
-   while (n--) {
-      out[n] = *(uint32_t *)serialized;
-      serialized = (uint32_t const *)serialized + 1;
+#ifdef WORDS_BIGENDIAN
+   #define deserialize_w32 deserialize_big_endian_w32
+   static void deserialize_w32(
+      uint32_t *restrict out, int n, void const *restrict serialized
+   ) {
+      while (n--) {
+         out[n] = *(uint32_t *)serialized;
+         serialized = (uint32_t const *)serialized + 1;
+      }
    }
-}
-
-static void deserialize_little_endian_w32(
-   uint32_t *restrict out, int n, void const *restrict serialized
-) {
-   (void)memcpy(out, serialized, n * sizeof *out);
-}
-
-static void test_endianness(void) {
-   union {
-      uint32_t w;
-      uint8_t o[4];
-   } v;
-   v.o[0] = UINT8_C(0x12);
-   v.o[1] = UINT8_C(0x34);
-   v.o[2] = UINT8_C(0x56);
-   v.o[3] = UINT8_C(0x78);
-   if (v.w == 0x12345678) {
-      deserialize_w32 = &deserialize_big_endian_w32;
-   } else if (v.w == 0x78563412) {
-      deserialize_w32 = deserialize_little_endian_w32;
-   } else {
-      die("This machine has unsupported strange endianness!");
+#else
+   #define deserialize_w32 deserialize_little_endian_w32
+   static void deserialize_w32(
+      uint32_t *restrict out, int n, void const *restrict serialized
+   ) {
+      (void)memcpy(out, serialized, n * sizeof *out);
    }
-}
+#endif
 
 int main(int argc, char **argv) {
    static uint32_t state[16];
@@ -280,10 +262,9 @@ int main(int argc, char **argv) {
    #define NONCE_N 2
    assert(NONCE_O + NONCE_N == sizeof state / sizeof *state);
    if (argc > 1) exit_usage(argc ? argv[0] : "(unnamed_program)");
-   test_endianness();
    {
       static char const as_good_as_any[] = {"expand 32-byte k"};
-      (*deserialize_w32)(state + CONST_O, CONST_N, as_good_as_any);
+      deserialize_w32(state + CONST_O, CONST_N, as_good_as_any);
    }
    {
       int c;
@@ -291,13 +272,12 @@ int main(int argc, char **argv) {
          {
             uint32_t w[POS_N];
             read_ck(w, POS_N * sizeof *w);
-            if (deserialize_w32 == &deserialize_little_endian_w32) {
-               (*deserialize_w32)(state + POS_O, POS_N, w);
-            } else {
-               assert(deserialize_w32 == &deserialize_big_endian_w32);
-               (*deserialize_w32)(state + POS_O, 1, w + 1);
-               (*deserialize_w32)(state + POS_O + 1, 1, w);
-            }
+            #ifdef WORDS_BIGENDIAN
+               deserialize_w32(state + POS_O, 1, w + 1);
+               deserialize_w32(state + POS_O + 1, 1, w);
+            #else
+               deserialize_w32(state + POS_O, POS_N, w);
+            #endif
          }
          expect('K');
       } else if (c != 'K') {
@@ -307,13 +287,13 @@ int main(int argc, char **argv) {
    {
       uint32_t w[KEY_N];
       read_ck(w, KEY_N * sizeof *w);
-      (*deserialize_w32)(state + KEY_O, KEY_N, w);
+      deserialize_w32(state + KEY_O, KEY_N, w);
    }
    expect('N');
    {
       uint32_t w[NONCE_N];
       read_ck(w, NONCE_N * sizeof *w);
-      (*deserialize_w32)(state + NONCE_O, NONCE_N, w);
+      deserialize_w32(state + NONCE_O, NONCE_N, w);
    }
    expect('D');
 }

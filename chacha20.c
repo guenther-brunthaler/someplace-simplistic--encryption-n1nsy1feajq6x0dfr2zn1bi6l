@@ -46,6 +46,8 @@ static char help[] = {
    "specified 64-bit-block offset.\n"
 };
 
+#define IO_BUFFER_SIZE (1u << 16)
+
 #if !defined __STDC_VERSION__ || __STDC_VERSION__ < 199901
    #error "This source file requires a C99 compliant C compiler!"
 #endif
@@ -163,6 +165,14 @@ static void emit_wrapping(
    *column_ref = column;
 }
 
+static void *malloc_ck(size_t bytes) {
+   void *result;
+   if (!(result = malloc(bytes))) {
+      io_die("Memory allocation failure");
+   }
+   return result;
+}
+
 static void exit_usage(char const *app) {
    static char const *const output[] = {help, "\n", version, 0};
    static char const trigger[] = {"{APP}"};
@@ -172,19 +182,20 @@ static void exit_usage(char const *app) {
       char const *cols;
       if (!!(cols = getenv("COLUMNS"))) columns = atoi(cols);
    }
+   #ifdef HAVE_TERMIOS_H
    if (!columns && isatty(STDOUT_FILENO)) {
       struct winsize w;
       if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) != -1) columns = w.ws_col;
    }
+   #endif
    if (!columns) columns = 66;
    {
       char const *msg = *messages++;
       int column = 0;
       char *line;
       size_t alen = strlen(app);
-      if (!(line = buffer = malloc(columns))) {
-         io_die("Memory allocation failure");
-      }
+      assert(!buffer);
+      line = buffer = malloc_ck(columns);
       for (;;) {
          char const *found;
          if (!(found = strstr(msg, trigger))) found = msg + strlen(msg);
@@ -220,7 +231,7 @@ static int getchar_ck(void) {
 }
 
 static void die_expecting(int c) {
-   die("Expecting '%s' as input!", c);
+   die("Expecting '%c' as input!", c);
 }
 
 static void expect(int c) {
@@ -296,4 +307,6 @@ int main(int argc, char **argv) {
       deserialize_w32(state + NONCE_O, NONCE_N, w);
    }
    expect('D');
+   buffer = malloc_ck(IO_BUFFER_SIZE);
+   release_resources();
 }

@@ -1,0 +1,77 @@
+ChaCha20
+========
+Guenther Brunthaler
+v2023.148
+
+
+'ChaCha20' is a stream cipher developed by 'D. J. Bernstein'. It is a refinement of 'Salsa20' and was used in the core of the 'SHA-3' finalist, 'BLAKE'.
+
+'ChaCha20' is basically a hash function, mapping 64 internal state octets into 64 pseudorandom output octets.
+
+The generated pseudorandom octets are then usually 'XOR'-combined with the input data stream in order to create the output data stream.
+
+The internal state consists of 16 words, each 32 bit wide:
+
+.. 4 words constants - deserialization of the 'ASCII' string "'expand 32-byte k'".
+
+.. 8 words - deserialization of the binary 256-bit encryption/decryption key
+
+.. 2 words block index, least significant word first. Use 0 as the index for encrypting/decrypting the first data block, 1 as the index for the second block, and so on.
+
+.. 2 words - deserialization of the binary 64-bit nonce
+
+Serialization chops an unsigned input number into groups of 8-bit each and outputs the resulting octets (= 8-bit bytes) in 'little-endian' byte order. (That means from least to most significant byte, least significant first.) Deserialization recreates the original number from such a serialized octet string.
+
+The maximum representable block index limits the input/output streams to 2^70^ octets each. (An unoffial modification allows larger streams by adding any overflowing block index words to the words at the end of the key.)
+
+'ChaCha20' consists of 20 rounds.
+
+The rounds work with a copy of the internal state words, updating the copies in-place. After the last round, the original internal state words are added to the result using the "`+=`"-operator described later.
+
+Finally, the pseudorandom output block is produced by serializing the result words.
+
+Each round applies a so-called "'quarter-round'" function four times, to a different set of words each time.
+
+First, the initial four words for each round are selected by conceptually arranging the 16 words of the internal state in a four by four grid with the first word in the top-left position and the fourth word in the top-right position.
+
+Then 'column' rounds and 'diagonal' rounds alternate until all rounds have been processed:
+
+* 'column' rounds select the four columns of the grid for the quarter-rounds, from left to right. The values are selected from top to bottom within the current column as the quarter-round arguments.
+
+* 'diagonal' rounds select the values of the grid diagonal from the top-left to the bottom-right as the arguments of first quarter-round. For the remaining three quarter-rounds, the pattern representing the selected grid positions of the previous quarter-round is rotated one column position to the right.
+
+The quarter-round function `R4()` itself updates in-place the words `(a, b, c, d)` which have been selected for this quarter-round as follows:
+
+....
+R4(): R8(RC(0), RC(1)); R8(RC(2), RC(3)).
+RC(i): 16 - i * 4 + floor(i / 3) * 3
+R8(r1, r2): R16(a, b, d, r1); R16(c, d, b, r2).
+R16(x, y, z, r): z ^= x += y; z <<<= r.
+....
+
+where "`a ^= b`" is short for "`a := BITWISE_EXCLUSIVE_OR(a, b)`", "`a := b`" means assignment of value `b` to variable `a`, "`a += b`" is short for "`a := (a + b) modulo (2 ** 32)`", "`**`" is the exponentiation operator and "`a <<<= n`" is short for "`a := BITWISE_ROTATE_LEFT(a, n)`".
+
+'ChaCha20' does not need any special key-setup preprocessing. Binary key, block-counter and nonce are used directly as-is by the algorithm. Which means changing the key is cheap. It bears no more overhead than incrementing the block index.
+
+Test vector:
+
+....
+Key
+00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f
+10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f
+
+Nonce
+00 00 00 09 00 00 00 4a 00 00 00 00
+
+Block Count
+1
+
+Input
+00 ... 00
+
+Output
+10 f1 e7 e4 d1 3b 59 15 50 0f dd 1f a3 20 71 c4
+c7 d1 f4 c7 33 c0 68 03 04 22 aa 9a c3 d4 6c 4e
+d2 82 64 46 07 9f aa 09 14 c2 d7 05 d9 8b 02 a2
+b5 12 9c d1 de 16 4e b9 cb d0 83 e8 a2 50 3c 4e
+....

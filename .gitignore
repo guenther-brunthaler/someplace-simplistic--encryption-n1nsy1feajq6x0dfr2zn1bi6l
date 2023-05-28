@@ -1,7 +1,6 @@
-*.[oa]
-*.html
-wip/config.h
-wip/rc4sxs-crypt
-wip/treyfer-cfb-512
-wip/treyfer-hash
-wip/treyfer-ofb
+/AUTHORS
+/COPYING
+/ChangeLog
+/INSTALL
+/NEWS
+/README

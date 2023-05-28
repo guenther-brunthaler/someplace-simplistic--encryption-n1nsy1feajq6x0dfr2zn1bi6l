@@ -50,6 +50,9 @@ static char help[] = {
    #error "This source file requires a C99 compliant C compiler!"
 #endif
 
+#ifdef HAVE_CONFIG_H
+   #include "config.h"
+#endif
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,8 +60,15 @@ static char help[] = {
 #include <stdarg.h>
 #include <string.h>
 #include <assert.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
+#ifdef HAVE_TERMIOS_H
+   #include <termios.h>
+#endif
+#ifdef GWINSZ_IN_SYS_IOCTL
+   #include <sys/ioctl.h>
+#endif
+#ifdef HAVE_UNISTD_H
+   #include <unistd.h>
+#endif
 
 static void *buffer;
 

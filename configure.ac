@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([simplistic_enc], [2023.148.1], [BUG-REPORT-ADDRESS])
+AC_INIT([simplistic_enc], [2023.150], [BUG-REPORT-ADDRESS])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([chacha20.c])
 AC_CONFIG_HEADERS([config.h])
@@ -16,7 +16,7 @@ AC_PROG_MAKE_SET
 # Checks for libraries.
 
 # Checks for header files.
-AC_CHECK_HEADERS([inttypes.h limits.h stdint.h stdlib.h string.h sys/ioctl.h unistd.h])
+AC_CHECK_HEADERS([inttypes.h limits.h stdint.h stdlib.h string.h sys/ioctl.h unistd.h termios.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_RESTRICT

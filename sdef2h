@@ -1,0 +1,88 @@
+#! /bin/sh
+
+VER_STR='Version 2024.66'
+set -e
+trap 'test $? = 0 || echo "\"$0\" failed!" >& 2' 0
+
+println() {
+	printf '%s\n' "$*"
+}
+
+die() {
+	test $line != 0 && set -- ${1+"$@"} "in (standard input) line $line"
+	println "$*!" >& 2
+	false || exit
+}
+line=0
+
+test $# = 0 || die "No command line arguments allowed"
+
+unquote_w3() {
+	uq=${w3#'"'}
+	case $uq in
+		$w3) ;;
+		*)
+			uq2=${uq%'"'}
+			case $uq2 in
+				$uq) die 'Incorrectly quoted >>>$w3<<<'
+			esac
+			w3=$uq2
+	esac
+}
+
+initial_comment() {
+	for c in \
+		"This file as been auto-generated on $NOW" \
+		"by $APP version $VER_STR." \
+		"Do not edit - changes will be overwritten."
+	do
+		println "$COMMENT_PREFIX$c$COMMENT_SUFFIX"
+	done
+}
+VER_STR=${VER_STR#*" "}
+APP=${0##*/}
+NOW=`LC_TIME=C date +'%Y-%m-%d %H:%M:%S %Z'`
+
+OFFSET_SUFFIX= LENGTH_SUFFIX= STRUCT_PREFIX= DEFLINE_PREFIX= DEFLINE_SUFFIX=
+COMMENT_PREFIX= COMMENT_SUFFIX=
+offset=
+while read w1 w2 w3
+do
+	line=`expr $line + 1`
+	case $w1 in
+		"#"* | "") continue # Ignore comments and empty lines.
+	esac
+	case $w2 in
+		=)
+			test "$w3" || die "Value required for setting '$w1'"
+			case $w1 in
+				OFFSET_SUFFIX |	LENGTH_SUFFIX |	STRUCT_PREFIX \
+				| DEFINITION_PREFIX | DEFINITION_SUFFIX \
+				| COMMENT_PREFIX | COMMENT_SUFFIX)
+					unquote_w3
+					eval $w1='$w3'
+					offset=0
+					;;
+				*) die "Unsupported setting '$w1'"
+			esac
+			;;
+		*)
+			test -z "$w3" \
+				&& expr x"$w2" : x'[1-9][0-9]*$' \
+					'|' x"$w2" = x0 \
+					> /dev/null \
+				|| die "Usage: <member_name> <member_length>"
+			test "$STRUCT_PREFIX" \
+				|| die "Setting 'STRUCT_PREFIX' required"
+			case $offset in
+				0) initial_comment
+			esac
+			pfx=$DEFINITION_PREFIX$STRUCT_PREFIX$w1
+			println "$pfx$OFFSET_SUFFIX" \
+				"$offset$DEFINITION_SUFFIX"
+			println "$pfx$LENGTH_SUFFIX" \
+				"$w2$DEFINITION_SUFFIX"
+			offset="($STRUCT_PREFIX$w1$OFFSET_SUFFIX"
+			offset=$offset" + $STRUCT_PREFIX$w1$LENGTH_SUFFIX)"
+	esac
+done

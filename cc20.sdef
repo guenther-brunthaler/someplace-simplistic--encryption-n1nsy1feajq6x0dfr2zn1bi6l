@@ -1,0 +1,16 @@
+# Filter this file through 'sdef2h'.
+#
+# v2024.66
+
+COMMENT_PREFIX = "   /* "
+COMMENT_SUFFIX = " */"
+DEFINITION_PREFIX = "   #define "
+OFFSET_SUFFIX = _O
+LENGTH_SUFFIX = _N
+
+STRUCT_PREFIX = CC20_
+	CONST 4
+	KEY 8
+	POS 2
+	NONCE 2
+	LENGTH 0

@@ -1,6 +1,6 @@
 static char version[] = {
-   "{APP} Version 2023.148.1\n"
-   "Copyright (c) 2023 Guenther Brunthaler. All rights reserved.\n"
+   "{APP} Version 2024.66\n"
+   "Copyright (c) 2023-2024 Guenther Brunthaler. All rights reserved."
    "\n"
    "This source file is free software.\n"
    "Distribution is permitted under the terms of the GPLv3.\n"
@@ -243,12 +243,19 @@ static void read_ck(void *dst, size_t bytes) {
 }
 
 #ifdef WORDS_BIGENDIAN
+   #define ASSIGN_W8(dst, di, src, si) \
+      (((unsigned char *)(dst))[di] = ((unsigned char const *)(src))[si])
+   #define FLIP_W32(dst, src) \
+      ASSIGN_W8(dst, 0, src, 3); \
+      ASSIGN_W8(dst, 1, src, 2); \
+      ASSIGN_W8(dst, 2, src, 1); \
+      ASSIGN_W8(dst, 3, src, 0)
    #define deserialize_w32 deserialize_big_endian_w32
    static void deserialize_w32(
       uint32_t *restrict out, int n, void const *restrict serialized
    ) {
       while (n--) {
-         out[n] = *(uint32_t *)serialized;
+         FLIP_W32(out + n, serialized);
          serialized = (uint32_t const *)serialized + 1;
       }
    }
@@ -263,31 +270,24 @@ static void read_ck(void *dst, size_t bytes) {
 
 int main(int argc, char **argv) {
    static uint32_t state[16];
-   #define CONST_O 0 
-   #define CONST_N 4
-   #define KEY_O (CONST_O + CONST_N)
-   #define KEY_N 8
-   #define POS_O (KEY_O + KEY_N)
-   #define POS_N 2
-   #define NONCE_O (POS_O + POS_N)
-   #define NONCE_N 2
-   assert(NONCE_O + NONCE_N == sizeof state / sizeof *state);
+   #include "cc20_struct.h"
+   assert(CC20_LENGTH_O == sizeof state / sizeof *state);
    if (argc > 1) exit_usage(argc ? argv[0] : "(unnamed_program)");
    {
       static char const as_good_as_any[] = {"expand 32-byte k"};
-      deserialize_w32(state + CONST_O, CONST_N, as_good_as_any);
+      deserialize_w32(state + CC20_CONST_O, CC20_CONST_N, as_good_as_any);
    }
    {
       int c;
       if ((c = getchar_ck()) == 'P') {
          {
-            uint32_t w[POS_N];
-            read_ck(w, POS_N * sizeof *w);
+            uint32_t w[CC20_POS_N];
+            read_ck(w, CC20_POS_N * sizeof *w);
             #ifdef WORDS_BIGENDIAN
-               deserialize_w32(state + POS_O, 1, w + 1);
-               deserialize_w32(state + POS_O + 1, 1, w);
+               deserialize_w32(state + CC20_POS_O, 1, w + 1);
+               deserialize_w32(state + CC20_POS_O + 1, 1, w);
             #else
-               deserialize_w32(state + POS_O, POS_N, w);
+               deserialize_w32(state + CC20_POS_O, CC20_POS_N, w);
             #endif
          }
          expect('K');
@@ -296,15 +296,15 @@ int main(int argc, char **argv) {
       }
    }
    {
-      uint32_t w[KEY_N];
-      read_ck(w, KEY_N * sizeof *w);
-      deserialize_w32(state + KEY_O, KEY_N, w);
+      uint32_t w[CC20_KEY_N];
+      read_ck(w, CC20_KEY_N * sizeof *w);
+      deserialize_w32(state + CC20_KEY_O, CC20_KEY_N, w);
    }
    expect('N');
    {
-      uint32_t w[NONCE_N];
-      read_ck(w, NONCE_N * sizeof *w);
-      deserialize_w32(state + NONCE_O, NONCE_N, w);
+      uint32_t w[CC20_NONCE_N];
+      read_ck(w, CC20_NONCE_N * sizeof *w);
+      deserialize_w32(state + CC20_NONCE_O, CC20_NONCE_N, w);
    }
    expect('D');
    buffer = malloc_ck(IO_BUFFER_SIZE);

@@ -1,0 +1,29 @@
+--- gbcrypt2.container.orig	2023-12-09 23:47:58.769491642 +0100
++++ gbcrypt2.container	2023-12-09 23:49:06.389491602 +0100
+@@ -3,14 +3,15 @@
+ set -e
+ cleanup() {
+ 	rc=$?
+-	test "$TD" && rm -rf -- "$TD"
++	#test "$TD" && rm -rf -- "$TD"
+ 	test $rc = 0 || $pass_rc || echo "\"$0\" failed!" >& 2
+ }
+ TD=
+ pass_rc=false
+ trap cleanup 0
+ trap 'exit $?' INT TERM QUIT HUP
+-TD=`mktemp -d -- "${TMPDIR:-/tmp}/${0##*/}".XXXXXXXXXX`
++#TD=`mktemp -d -- "${TMPDIR:-/tmp}/${0##*/}".XXXXXXXXXX`
++TD=.
+ 
+ sep='---snip---'
+ while read line
+@@ -45,7 +46,7 @@
+ 	esac
+ done < "$0"
+ pass_rc=true
+-sh "$TD"/$main ${1+"$@"}
++#sh "$TD"/$main ${1+"$@"}
+ exit
+ 
+ # Insert the output of all required scripts between the $sep markers below.

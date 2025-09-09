@@ -7,10 +7,11 @@ static char version[] = {
 };
 
 static char help[] = {
-   "A ChaCha20 implementation.\n"
+   "A ChaCha20 encryption/decryption utility.\n"
    "\n"
-   "{APP} encrypts or decrypts arbitrary data read from standard input and "
-   "writes the result to standard output.\n"
+   "{APP} encrypts or decrypts arbitrary data read from standard input "
+   "using the ChaCha20 encryption algorithm and writes the result to "
+   "standard output.\n"
    "\n"
    "Before the data to be encrypted or decrypted, the following encryption "
    "parameters will be read from standard input:\n"
@@ -97,10 +98,21 @@ static void die(char const *format, ...) {
    exit(EXIT_FAILURE);
 }
 
+static void write_error(void) {
+   io_die("Output error");
+}
+
 static void write_ck(void const *src, size_t bytes) {
-   if (fwrite(src, sizeof(char), bytes, stdout) != bytes) {
-      io_die("Output error");
+   if (fwrite(src, sizeof(char), bytes, stdout) != bytes) write_error();
+}
+
+static size_t try_read_ck(void *dst, size_t bytes) {
+   size_t read;
+   if ((read = fread(dst, sizeof(char), bytes, stdin)) != bytes) {
+      if (ferror(stdin)) io_die("Read error");
+      assert(feof(stdin));
    }
+   return read;
 }
 
 static void emit_wrapping(
@@ -308,5 +320,12 @@ int main(int argc, char **argv) {
    }
    expect('D');
    buffer = malloc_ck(IO_BUFFER_SIZE);
+   {
+      size_t bytes;
+      while (bytes = try_read_ck(buffer, IO_BUFFER_SIZE)) {
+         write_ck(buffer, bytes);
+      }
+   }
+   if (fflush(0)) write_error();
    release_resources();
 }

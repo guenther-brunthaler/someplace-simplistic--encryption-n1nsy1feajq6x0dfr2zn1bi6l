@@ -1,8 +1,8 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2023.20
-Copyright (c) 2022-2023 Guenther Brunthaler. All rights reserved.
+Version 2025.252
+Copyright (c) 2022-2025 Guenther Brunthaler. All rights reserved.
 
 This script is free software.
 Distribution is permitted under the terms of the GPLv3.
@@ -31,8 +31,9 @@ encryption key which would be dangerous with ARCFOUR. Instead, it will be |
 subjected to a proper key derivation function.|
 |
 The encrypted ciphertext output will consist of a 32-octet (octets are 8-bit |
-bytes) salt, followed by the encrypted data, followed by a 32-octet (256 bit) |
-message authentication code (MAC).|
+bytes) salt, followed by the encrypted data (which has the same size as the |
+unencrypted plaintext), followed by a 32-octet (256 bit) message |
+authentication code (MAC).|
 |
 Nothing in the contents of the encrypted file gives any clue (except for the |
 length) about its format or contents. This is intentional in order to |
@@ -66,12 +67,13 @@ Otherwise, $APP attempts to invoke an external helper script |
 high-quality true-random octets. If no such utility is found either, $APP |
 reads 32 octets from /dev/random as a last resort.|
 |
-Note that any <seed_file> is not used directly as the salt, but would rather |
-be hashed into 32 octets by $APP as the salt. Therefore it does not really |
-matter what size of format <seed_file> has, as long as its contents will |
-never repeat. For instance, a file containing a simple counter which is |
+Note that any <seed_file> is not used directly as the salt, but will rather be |
+hashed into 32 octets by $APP as the salt. Therefore it does not really matter |
+what size or format <seed_file> has, as long as its contents will never |
+repeat. For instance, a text file containing a simple counter which is |
 incremented before every encryption would be fine as <seed_file>. The output |
-of "date" written to a file would also do.|
+of "date" written to a file would also do (but ensure your system clock is set |
+correctly).|
 |
 Neither <psw_file> nor <seed_file> need to be regular files. They can also be |
 special files like FIFOs or file descriptors in /dev/fd/*.|

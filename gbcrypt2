@@ -1,7 +1,7 @@
 #! /bin/sh
 version() {
 	cat << ===
-Version 2025.252
+Version 2025.252.1
 Copyright (c) 2022-2025 Guenther Brunthaler. All rights reserved.
 
 This script is free software.
@@ -11,7 +11,7 @@ Distribution is permitted under the terms of the GPLv3.
 
 help() {
 	cat << ===
-$APP - encrypt and integrity-protect data or decrypt and verify it|
+$APP - encrypt and integrity-protect data or verify and decrypt it|
 |
 Usage (encryption): $APP [ <options> ] [ -- ] <psw_file> < <plaintext> > |
 <ciphertext>.gc2|
@@ -23,12 +23,12 @@ $APP encrypts or decrypts arbitrary data using the ARCFOUR-drop3072 stream |
 cipher.|
 |
 <psw_file> is the pathname of a file containing a text pass phrase. It is |
-safe to use the same pass phrase for many messages, because $APP will |
-automatically create and apply a salt for every new encryption. Any newline |
-characters present in <psw_file> will be skipped when $APP reads its contents |
-as if they were not there. The pass phrase will not be used directly as the |
-encryption key which would be dangerous with ARCFOUR. Instead, it will be |
-subjected to a proper key derivation function.|
+safe to use the same pass phrase for many messages, because $APP will not use |
+the pass phrase directly for encryption. The encryption key will instead be |
+derived from the pass phrase and a salt. A new salt will automatically be |
+created for every new encryption. (Option -s can be used to override this.) |
+Any newline characters present in <psw_file> will be skipped when $APP reads |
+its contents as if they were not there.|
 |
 The encrypted ciphertext output will consist of a 32-octet (octets are 8-bit |
 bytes) salt, followed by the encrypted data (which has the same size as the |
@@ -48,44 +48,48 @@ that the encrypted data has not been maliciously modified.|
 |
 Options supported:|
 |
--s <seed_file>: Use the seed from this file rather than generating one.|
--V: Show version information and exit.|
--h: Display this help and exit.|
+-s <nonce_file>: A non-secret nonce from which the encryption salt will be |
+derived. <nonce_file> will be read, its contents will be hashed and the |
+result will be used as the encryption salt rather than generating one. The |
+file contents are arbitrary (text or binary data) but must never repeat when |
+using the same key.|
+|
+-V: Show version information and exit. -h: Display this help and exit.|
 |
 $APP implements version 2 of the author's simplistic portable encryption |
-scheme. It is simple enough to be implemented entirely using POSIX-defined |
-command line utilities, at least for decryption.|
+scheme for using ARCFOUR. It is simple enough to be implemented entirely |
+using POSIX-defined command line utilities, at least for decryption.|
 |
-Encryption needs a 32-octet salt, which will be derived from a seed which |
+Encryption needs a 32-octet salt, which will be derived from a nonce which |
 must never repeat.|
 |
-The seed can be specified directly via option -s, which is useful when using |
+The nonce can be specified directly via option -s, which is useful when using |
 a counter- or date-based nonce.|
 |
 Otherwise, $APP attempts to invoke an external helper script |
-'$default_saltgen' with argument of 32 which is expected to return |
+'$default_saltgen' with argument of 32 which is expected to return 32 |
 high-quality true-random octets. If no such utility is found either, $APP |
 reads 32 octets from /dev/random as a last resort.|
 |
-Note that any <seed_file> is not used directly as the salt, but will rather be |
-hashed into 32 octets by $APP as the salt. Therefore it does not really matter |
-what size or format <seed_file> has, as long as its contents will never |
-repeat. For instance, a text file containing a simple counter which is |
-incremented before every encryption would be fine as <seed_file>. The output |
-of "date" written to a file would also do (but ensure your system clock is set |
-correctly).|
+Note that the contents of <nonce_file> (if any) will not be used directly as |
+the salt, but will rather be hashed into 32 octets by $APP to obtain the |
+salt. Therefore it does not really matter what size or format <nonce_file> |
+has, as long as its contents will never repeat. For instance, a text file |
+containing a simple counter which is incremented before every encryption |
+would be fine as <nonce_file>. The output of "date" written to a file would |
+also do (but ensure your system clock is set correctly).|
 |
-Neither <psw_file> nor <seed_file> need to be regular files. They can also be |
-special files like FIFOs or file descriptors in /dev/fd/*.|
+Neither <psw_file> nor <nonce_file> need to be regular files. They can also |
+be special files like FIFOs or file descriptors in /dev/fd/*.|
 ===
 }
 APP=${0##*/}
 
-seed_warning() {
+nonce_warning() {
 	cat << ===
-Warning: No seed has been specified via option -s and no entropy harvesting |
+Warning: No nonce has been specified via option -s and no entropy harvesting |
 helper '$default_saltgen' has been found either. Falling back to /dev/random |
-for obtaining a seed for salt generation.|
+for obtaining a nonce for salt generation.|
 ===
 }
 
@@ -118,7 +122,7 @@ way. Depending on the situation, "rsync" and "zsync" might also help.|
 }
 
 default_saltgen=keygen-octets-by-harvesting-entropy
-buddies='psw2key key2prand raw2dec rc4csprng10 xor10 dec2raw'
+buddies='dec2raw key2prand psw2key raw2dec rc4csprng10 xor10'
 DEBUG=false
 
 set -e
@@ -154,11 +158,11 @@ exit_help() {
 	echo; exit_version "$@"
 }
 
-seed_file=
+nonce_file=
 while getopts s:hV opt
 do
 	case $opt in
-		s) seed_file=$OPTARG;;
+		s) nonce_file=$OPTARG;;
 		h) exit_help;;
 		V) exit_version;;
 		*) false || exit
@@ -192,16 +196,16 @@ esac
 
 case $# in
 	1)
-		if test -z "$seed_file"
+		if test -z "$nonce_file"
 		then
-			seed_file=$TD/seed
+			nonce_file=$TD/nonce
 			if command -v "$default_saltgen" >& 8 2>& 1
 			then
 				"$default_saltgen" 32
 			else
-				seed_warning | show_reflowed >& 2
+				nonce_warning | show_reflowed >& 2
 				dd if=/dev/random bs=1 count=32 2>& 8
-			fi > "$seed_file"
+			fi > "$nonce_file"
 		fi
 esac
 
@@ -212,11 +216,11 @@ case $# in
 	1) 	case $DEBUG in
 			true) : | openssl sha256 -binary;;
 			*)
-			        test -r "$seed_file"
+			        test -r "$nonce_file"
 				{
 					buddy key2prand | buddy raw2dec
 					echo D 3072 G 32 T
-				} < "$seed_file" \
+				} < "$nonce_file" \
 				| buddy rc4csprng10 | buddy dec2raw
 		esac | tee -- "$TD"/salt;;
 	2)

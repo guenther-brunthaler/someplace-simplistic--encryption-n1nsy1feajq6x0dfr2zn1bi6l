@@ -1,6 +1,8 @@
-/AUTHORS
-/COPYING
-/ChangeLog
-/INSTALL
-/NEWS
-/README
+/chacha20/AUTHORS
+/chacha20/COPYING
+/chacha20/ChangeLog
+/chacha20/INSTALL
+/chacha20/NEWS
+/chacha20/README
+/chacha20/cc20_struct.h
+/gbcrypt2/gbcrypt2.standalone
